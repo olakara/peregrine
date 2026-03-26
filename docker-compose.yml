@@ -1,0 +1,13 @@
+services:
+  peregrine:
+    build:
+      context: ./src/Peregrine.Api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src/Peregrine.Api/drone.yaml:/app/drone.yaml:ro
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+    restart: unless-stopped
