@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# BATTERY
+# Charge rate (drone.yaml): 0.5 % / s  →  full charge ≈ 3 min 20 s
+# Emergency land threshold: 10 %
+# Recharge requires: Idle state
+# ─────────────────────────────────────────────────────────────
+
+### Get Battery Status
+# Returns: batteryPercent, isCharging, droneState, timestamp
+GET {{baseUrl}}/drone/battery
+Accept: application/json
+
+###
+
+### Start Recharge
+# Requires: Idle state
+# Transitions drone: Idle → Charging
+# Charging stops automatically when battery reaches 100 %.
+POST {{baseUrl}}/drone/battery/recharge
+
+###
+
+### Stop Recharge
+# Requires: Charging state
+# Transitions drone: Charging → Idle
+POST {{baseUrl}}/drone/battery/recharge/stop
+
+###

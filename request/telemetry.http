@@ -1,0 +1,25 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# TELEMETRY
+# Two modes:
+#   - Snapshot  : single JSON response
+#   - SSE stream: live updates (text/event-stream), keep connection open
+# ─────────────────────────────────────────────────────────────
+
+### Get Status Snapshot
+# Returns current DroneStatus (state, position, heading, speed, battery …)
+GET {{baseUrl}}/drone/status
+Accept: application/json
+
+###
+
+### Telemetry Stream  (Server-Sent Events)
+# Streams DroneStatus at the configured telemetry interval (1 s).
+# Keep the connection open; close it to stop receiving events.
+# Note: most REST clients show the raw event stream; use a browser
+#       or EventSource client for a nicer experience.
+GET {{baseUrl}}/drone/telemetry
+Accept: text/event-stream
+
+###

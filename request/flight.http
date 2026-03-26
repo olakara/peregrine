@@ -1,0 +1,50 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# FLIGHT
+# Typical sequence:
+#   1. Power on          (power.http)
+#   2. Take off          → TakingOff → Hovering
+#   3. Load waypoints    (waypoints.http)
+#   4. Navigate          → Flying
+#   5. Hover             → Hovering  (pause navigation)
+#   6. Land              → Landing → Idle
+# ─────────────────────────────────────────────────────────────
+
+### Take Off  (default altitude from config: 30 m)
+# Requires: Idle state
+# Optional body — omit to use the configured default hover altitude
+POST {{baseUrl}}/drone/takeoff
+Content-Type: application/json
+
+{}
+
+###
+
+### Take Off to specific altitude (metres)
+POST {{baseUrl}}/drone/takeoff
+Content-Type: application/json
+
+{
+  "altitude": 50.0
+}
+
+###
+
+### Hover  (pause in place)
+# Requires: Flying state
+POST {{baseUrl}}/drone/hover
+
+###
+
+### Navigate  (start executing waypoint queue)
+# Requires: Hovering state + at least one waypoint loaded
+POST {{baseUrl}}/drone/navigate
+
+###
+
+### Land
+# Requires: Hovering or Flying state
+POST {{baseUrl}}/drone/land
+
+###

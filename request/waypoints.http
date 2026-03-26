@@ -1,0 +1,42 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# WAYPOINTS
+# Load an ordered list of GPS waypoints before calling Navigate.
+# Home position (drone.yaml): 37.7749, -122.4194 (San Francisco)
+# Max altitude (drone.yaml): 120 m
+# ─────────────────────────────────────────────────────────────
+
+### Load Waypoints
+# Replaces the current queue entirely.
+# speedMps is optional per waypoint; omit to use max drone speed (15 m/s).
+POST {{baseUrl}}/drone/waypoints
+Content-Type: application/json
+
+[
+  {
+    "latitude": 37.7760,
+    "longitude": -122.4180,
+    "altitude": 40.0,
+    "speedMps": 10.0
+  },
+  {
+    "latitude": 37.7775,
+    "longitude": -122.4165,
+    "altitude": 50.0,
+    "speedMps": 12.0
+  },
+  {
+    "latitude": 37.7790,
+    "longitude": -122.4150,
+    "altitude": 40.0
+  }
+]
+
+###
+
+### Clear Waypoints
+# Empties the waypoint queue.
+DELETE {{baseUrl}}/drone/waypoints
+
+###

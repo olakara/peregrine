@@ -1,0 +1,19 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# POWER
+# State transitions:  Offline → Idle (power on)
+#                     Idle / Charging → Offline (power off)
+# ─────────────────────────────────────────────────────────────
+
+### Power On
+# Transitions drone: Offline → Idle
+POST {{baseUrl}}/drone/power/on
+
+###
+
+### Power Off
+# Transitions drone: Idle or Charging → Offline
+POST {{baseUrl}}/drone/power/off
+
+###
