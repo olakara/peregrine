@@ -3,7 +3,7 @@
 # ─────────────────────────────────────────────────────────────
 # WAYPOINTS
 # Load an ordered list of GPS waypoints before calling Navigate.
-# Home position (drone.yaml): 37.7749, -122.4194 (San Francisco)
+# Home position (drone.yaml): 24.4149, 54.4561 (Abu Dhabi)
 # Max altitude (drone.yaml): 120 m
 # ─────────────────────────────────────────────────────────────
 
