@@ -7,7 +7,7 @@ RUN dotnet restore ./src/Peregrine.Api/Peregrine.Api.csproj
 COPY . .
 RUN dotnet publish ./src/Peregrine.Api/Peregrine.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
 COPY --from=build /app/publish .

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE Event Monitor</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f9; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; }
+        button:disabled { background: #ccc; }
+        #stop-btn { background: #dc3545; }
+        
+        #status { font-weight: bold; margin-bottom: 10px; }
+        .connected { color: green; }
+        .disconnected { color: red; }
+
+        #log { 
+            background: #1e1e1e; color: #d4d4d4; padding: 15px; 
+            border-radius: 8px; height: 400px; overflow-y: auto; 
+            font-family: 'Courier New', monospace; font-size: 14px;
+        }
+        .event-entry { border-bottom: 1px solid #333; padding: 5px 0; }
+        .timestamp { color: #888; font-size: 12px; margin-right: 10px; }
+        .data { color: #4ec9b0; }
+    </style>
+</head>
+<body>
+
+    <h2>SSE Event Monitor</h2>
+
+    <div class="controls">
+        <input type="text" id="url-input" placeholder="Enter SSE URL (e.g., https://api.example.com/events)">
+        <button id="start-btn">Connect</button>
+        <button id="stop-btn" disabled>Disconnect</button>
+        <button id="clear-btn">Clear Log</button>
+    </div>
+
+    <div id="status" class="disconnected">Status: Disconnected</div>
+
+    <div id="log">
+        <div class="event-entry">Waiting for connection...</div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        const urlInput = document.getElementById('url-input');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const clearBtn = document.getElementById('clear-btn');
+
+        function addLog(message, isData = false) {
+            const entry = document.createElement('div');
+            entry.className = 'event-entry';
+            const now = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="timestamp">[${now}]</span> <span class="${isData ? 'data' : ''}">${message}</span>`;
+            log.prepend(entry); // Newest events at the top
+        }
+
+        startBtn.onclick = () => {
+            const url = urlInput.value.trim();
+            if (!url) return alert("Please enter a URL");
+
+            eventSource = new EventSource(url);
+            addLog(`Attempting to connect to ${url}...`);
+
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            eventSource.onopen = () => {
+                status.textContent = "Status: Connected";
+                status.className = "connected";
+                addLog("Connection established.");
+            };
+
+            eventSource.onmessage = (event) => {
+                addLog(`Message: ${event.data}`, true);
+            };
+
+            eventSource.onerror = () => {
+                status.textContent = "Status: Error/Disconnected";
+                status.className = "disconnected";
+                addLog("Error occurred or connection closed.");
+                stopConnection();
+            };
+        };
+
+        function stopConnection() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            status.textContent = "Status: Disconnected";
+            status.className = "disconnected";
+        }
+
+        stopBtn.onclick = stopConnection;
+        clearBtn.onclick = () => log.innerHTML = '';
+    </script>
+</body>
+</html>
