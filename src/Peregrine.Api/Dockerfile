@@ -1,11 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Peregrine.Api.csproj .
-RUN dotnet restore
+COPY src/Peregrine.Api/Peregrine.Api.csproj ./src/Peregrine.Api/
+RUN dotnet restore ./src/Peregrine.Api/Peregrine.Api.csproj
 
 COPY . .
-RUN dotnet publish -c Release -o /app/publish --no-restore
+RUN dotnet publish ./src/Peregrine.Api/Peregrine.Api.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
