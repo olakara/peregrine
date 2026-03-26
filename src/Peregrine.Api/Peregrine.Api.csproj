@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="drone.yaml">
+    <Content Include="../../config/drone.yaml">
+      <Link>drone.yaml</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

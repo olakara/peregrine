@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./src/Peregrine.Api/drone.yaml:/app/drone.yaml:ro
+      - ./config/drone.yaml:/app/drone.yaml:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
