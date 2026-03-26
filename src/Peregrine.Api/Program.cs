@@ -50,3 +50,5 @@ foreach (var type in endpointTypes)
 }
 
 app.Run();
+
+public partial class Program { }

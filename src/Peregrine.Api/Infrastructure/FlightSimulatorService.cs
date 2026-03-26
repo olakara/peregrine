@@ -11,10 +11,8 @@ namespace Peregrine.Api.Infrastructure;
 /// Handles flight physics (Haversine navigation), altitude transitions,
 /// battery drain/charge, and emergency procedures.
 /// </summary>
-public sealed class FlightSimulatorService : BackgroundService
+public class FlightSimulatorService : BackgroundService
 {
-    private const double EarthRadiusMeters = 6_371_000.0;
-
     private readonly DroneContext _drone;
     private readonly TelemetryBroadcaster _broadcaster;
     private readonly DroneConfiguration _config;
@@ -60,7 +58,7 @@ public sealed class FlightSimulatorService : BackgroundService
         }
     }
 
-    private void Tick(double dt)
+    internal void Tick(double dt)
     {
         var state = _drone.State;
 
@@ -125,11 +123,11 @@ public sealed class FlightSimulatorService : BackgroundService
         var current = _drone.Position;
         var speedMps = waypoint.SpeedMps ?? _config.Performance.MaxSpeedMps;
 
-        var distanceMeters = HaversineDistance(
+        var distanceMeters = GeoMath.HaversineDistance(
             current.Latitude, current.Longitude,
             waypoint.Latitude, waypoint.Longitude);
 
-        var bearing = Bearing(
+        var bearing = GeoMath.Bearing(
             current.Latitude, current.Longitude,
             waypoint.Latitude, waypoint.Longitude);
 
@@ -156,7 +154,7 @@ public sealed class FlightSimulatorService : BackgroundService
         else
         {
             // Move toward waypoint
-            var (newLat, newLon) = MoveToward(
+            var (newLat, newLon) = GeoMath.MoveToward(
                 current.Latitude, current.Longitude,
                 bearing, horizontalMove);
 
@@ -231,59 +229,4 @@ public sealed class FlightSimulatorService : BackgroundService
         }
     }
 
-    // --- Haversine helpers ---
-
-    private static double HaversineDistance(
-        double lat1Deg, double lon1Deg,
-        double lat2Deg, double lon2Deg)
-    {
-        var lat1 = ToRadians(lat1Deg);
-        var lat2 = ToRadians(lat2Deg);
-        var dLat = ToRadians(lat2Deg - lat1Deg);
-        var dLon = ToRadians(lon2Deg - lon1Deg);
-
-        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
-              + Math.Cos(lat1) * Math.Cos(lat2)
-              * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-
-        return EarthRadiusMeters * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-    }
-
-    private static double Bearing(
-        double lat1Deg, double lon1Deg,
-        double lat2Deg, double lon2Deg)
-    {
-        var lat1 = ToRadians(lat1Deg);
-        var lat2 = ToRadians(lat2Deg);
-        var dLon = ToRadians(lon2Deg - lon1Deg);
-
-        var y = Math.Sin(dLon) * Math.Cos(lat2);
-        var x = Math.Cos(lat1) * Math.Sin(lat2)
-              - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(dLon);
-
-        return (ToDegrees(Math.Atan2(y, x)) + 360) % 360;
-    }
-
-    private static (double Lat, double Lon) MoveToward(
-        double latDeg, double lonDeg,
-        double bearingDeg, double distanceMeters)
-    {
-        var lat = ToRadians(latDeg);
-        var lon = ToRadians(lonDeg);
-        var bearing = ToRadians(bearingDeg);
-        var angular = distanceMeters / EarthRadiusMeters;
-
-        var newLat = Math.Asin(
-            Math.Sin(lat) * Math.Cos(angular)
-            + Math.Cos(lat) * Math.Sin(angular) * Math.Cos(bearing));
-
-        var newLon = lon + Math.Atan2(
-            Math.Sin(bearing) * Math.Sin(angular) * Math.Cos(lat),
-            Math.Cos(angular) - Math.Sin(lat) * Math.Sin(newLat));
-
-        return (ToDegrees(newLat), ToDegrees(newLon));
-    }
-
-    private static double ToRadians(double degrees) => degrees * Math.PI / 180.0;
-    private static double ToDegrees(double radians) => radians * 180.0 / Math.PI;
 }
