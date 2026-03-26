@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Peregrine.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="../../config/drone.yaml">
       <Link>drone.yaml</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

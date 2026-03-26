@@ -44,8 +44,8 @@ drone:
   id: "peregrine-1"
   name: "Peregrine"
   homePosition:
-    latitude: 37.7749
-    longitude: -122.4194
+    latitude: 24.46667 
+    longitude: 54.36667
     altitude: 0.0
   performance:
     maxSpeedMps: 15.0
