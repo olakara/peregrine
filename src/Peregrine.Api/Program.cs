@@ -61,6 +61,16 @@ try
     builder.Services.AddSingleton<TelemetryBroadcaster>();
     builder.Services.AddHostedService<FlightSimulatorService>();
 
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+    });
+
     builder.Services.AddOpenApi();
 
     // Serialize enums as strings for a readable API
@@ -71,6 +81,8 @@ try
 
     // Must be registered before routing so every request is captured.
     app.UseHttpLogging();
+
+    app.UseCors("AllowAll");
 
     app.MapOpenApi();
     app.MapScalarApiReference(opts =>
