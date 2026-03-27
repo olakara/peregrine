@@ -18,12 +18,12 @@
 
         #log { 
             background: #1e1e1e; color: #d4d4d4; padding: 15px; 
-            border-radius: 8px; height: 400px; overflow-y: auto; 
+            border-radius: 8px; height: 700px; overflow-y: auto; 
             font-family: 'Courier New', monospace; font-size: 14px;
         }
         .event-entry { border-bottom: 1px solid #333; padding: 5px 0; }
         .timestamp { color: #888; font-size: 12px; margin-right: 10px; }
-        .data { color: #4ec9b0; }
+        .data { color: #4ec9b0; white-space: pre-wrap; display: inline-block; }
     </style>
 </head>
 <body>
@@ -52,11 +52,36 @@
         const stopBtn = document.getElementById('stop-btn');
         const clearBtn = document.getElementById('clear-btn');
 
+        function formatMessage(message) {
+            if (typeof message !== 'string') {
+                return JSON.stringify(message, null, 2);
+            }
+
+            try {
+                return JSON.stringify(JSON.parse(message), null, 2);
+            } catch {
+                return message;
+            }
+        }
+
         function addLog(message, isData = false) {
             const entry = document.createElement('div');
             entry.className = 'event-entry';
             const now = new Date().toLocaleTimeString();
-            entry.innerHTML = `<span class="timestamp">[${now}]</span> <span class="${isData ? 'data' : ''}">${message}</span>`;
+
+            const timestamp = document.createElement('span');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = `[${now}]`;
+
+            const content = document.createElement('span');
+            if (isData) {
+                content.className = 'data';
+                content.textContent = formatMessage(message);
+            } else {
+                content.textContent = message;
+            }
+
+            entry.append(timestamp, document.createTextNode(' '), content);
             log.prepend(entry); // Newest events at the top
         }
 
@@ -77,7 +102,7 @@
             };
 
             eventSource.onmessage = (event) => {
-                addLog(`Message: ${event.data}`, true);
+                addLog(event.data, true);
             };
 
             eventSource.onerror = () => {
