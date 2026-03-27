@@ -15,10 +15,10 @@ Content-Type: application/json
 
 [
   {
-    "latitude": 24.4150,
-    "longitude": 54.4560,
+    "latitude": 24.419248,
+    "longitude": 54.346518,
     "altitude": 40.0,
-    "speedMps": 10.0
+    "speedMps": 5.0
   }
 ]
 

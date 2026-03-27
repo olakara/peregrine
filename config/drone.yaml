@@ -2,8 +2,8 @@ drone:
   id: "peregrine-1"
   name: "Peregrine"
   homePosition:
-    latitude: 24.414915569240357
-    longitude: 54.456152813492
+    latitude: 24.446994
+    longitude: 54.673742
     altitude: 0.0
   performance:
     maxSpeedMps: 15.0
@@ -13,11 +13,11 @@ drone:
   battery:
     initialChargePercent: 100.0
     drainRates:
-      idlePerSecond: 0.02
-      hoveringPerSecond: 0.15
-      flyingPerSecond: 0.25
+      idlePerSecond: 0.0001
+      hoveringPerSecond: 0.05
+      flyingPerSecond: 0.10
       takeoffLandingPerSecond: 0.20
-      chargeRatePerSecond: 0.5
+      chargeRatePerSecond: 0.10
     emergencyLandThresholdPercent: 10.0
   simulation:
     tickIntervalMs: 500
