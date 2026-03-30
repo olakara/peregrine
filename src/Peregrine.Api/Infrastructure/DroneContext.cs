@@ -173,6 +173,8 @@ public sealed class DroneContext
         {
             if (_state == DroneState.Offline)
                 return (false, "Drone is offline. Power on first.");
+            if (!double.IsFinite(speedMps))
+                return (false, "Speed must be a finite number.");
             if (speedMps <= 0)
                 return (false, "Speed must be greater than 0 m/s.");
             if (speedMps > _config.Performance.MaxSpeedMps)

@@ -684,6 +684,22 @@ public sealed class DroneContextTests
         error.Should().Contain("greater than 0");
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void SetSpeed_NonFiniteValue_ReturnsError(double speed)
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.SetSpeed(speed);
+
+        success.Should().BeFalse();
+        error.Should().Contain("finite");
+        drone.DesiredSpeedMps.Should().BeNull();
+    }
+
     [Fact]
     public void SetSpeed_ResetsToNullOnPowerOff()
     {
