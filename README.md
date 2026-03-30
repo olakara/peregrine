@@ -147,7 +147,9 @@ A live map interface built with Leaflet that subscribes to `GET /drone/telemetry
 - Auto-follow mode that re-centres the map on every telemetry update
 - Dark-themed UI with colour-coded drone state badges
 
-Default endpoint: `http://localhost:5180/drone/telemetry`
+Default telemetry endpoints:
+- When running via `dotnet run`: `http://localhost:5180/drone/telemetry`
+- When running via Docker (port 8080 exposed): `http://localhost:8080/drone/telemetry`
 
 ## HTTP Request Files
 
@@ -156,11 +158,11 @@ Feature-scoped `.http` files for all 13 API endpoints are in the `request/` fold
 | File | Endpoints covered |
 |------|-------------------|
 | `_variables.http` | Shared base URL variable |
-| `power.http` | `POST /drone/power/on\|off` |
-| `flight.http` | `POST /drone/takeoff\|land\|hover\|navigate` |
-| `waypoints.http` | `POST\|DELETE /drone/waypoints` |
-| `telemetry.http` | `GET /drone/status` and `/drone/telemetry` |
-| `battery.http` | `GET\|POST /drone/battery` and recharge endpoints |
+| `power.http` | `POST /drone/power/on`<br>`POST /drone/power/off` |
+| `flight.http` | `POST /drone/takeoff`<br>`POST /drone/land`<br>`POST /drone/hover`<br>`POST /drone/navigate` |
+| `waypoints.http` | `POST /drone/waypoints`<br>`DELETE /drone/waypoints` |
+| `telemetry.http` | `GET /drone/status`<br>`GET /drone/telemetry` |
+| `battery.http` | `GET /drone/battery`<br>`POST /drone/battery/recharge`<br>`POST /drone/battery/recharge/stop` |
 
 ## Project Structure
 
