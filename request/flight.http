@@ -43,8 +43,36 @@ POST {{baseUrl}}/drone/navigate
 
 ###
 
+### Set Speed  (cruise speed in m/s)
+# Works in any powered-on state; resets to default on power-off
+PUT {{baseUrl}}/drone/speed
+Content-Type: application/json
+
+{
+  "speedMps": 10.0
+}
+
+###
+
+### Set Speed  (maximum — 15 m/s)
+PUT {{baseUrl}}/drone/speed
+Content-Type: application/json
+
+{
+  "speedMps": 15.0
+}
+
+###
+
 ### Land
 # Requires: Hovering or Flying state
 POST {{baseUrl}}/drone/land
+
+###
+
+### Return Home
+# Requires: Hovering or Flying state
+# Auto-lands at home position on arrival
+POST {{baseUrl}}/drone/return-home
 
 ###
