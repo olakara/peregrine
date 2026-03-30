@@ -768,11 +768,12 @@ public sealed class DroneContextTests
 
         drone.WaypointQueueDepth().Should().Be(1);
         var homeWp = drone.PeekNextWaypoint();
-        homeWp!.Latitude.Should().Be(0.0);   // DroneContextFactory home: lat=0, lon=0
-        homeWp.Longitude.Should().Be(0.0);
+        var nonNullHomeWp = homeWp!;
+        nonNullHomeWp.Latitude.Should().Be(0.0);   // DroneContextFactory home: lat=0, lon=0
+        nonNullHomeWp.Longitude.Should().Be(0.0);
         // Altitude should match the drone's current altitude, not home.Altitude=0
         // (drone flies level to home, then auto-lands on arrival)
-        homeWp.Altitude.Should().Be(drone.Position.Altitude);
+        nonNullHomeWp.Altitude.Should().Be(drone.Position.Altitude);
     }
 
     [Fact]
