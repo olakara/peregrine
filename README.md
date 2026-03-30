@@ -10,6 +10,9 @@ A drone flight simulator API built with ASP.NET Core 10. Peregrine exposes a RES
 - **Live telemetry** — real-time status streaming via Server-Sent Events (SSE)
 - **YAML configuration** — all drone performance and simulation parameters are externally configurable
 - **OpenAPI docs** — interactive API documentation via Scalar UI
+- **Structured logging** — Serilog with compact JSON (production) or timestamped text (development) output, plus per-request HTTP logging
+- **CORS** — permissive `AllowAll` policy enabled for local development (restrict origins before deploying to production)
+- **Test suite** — 161 tests (97 unit + 64 integration) covering all endpoints, state transitions, battery logic, and GPS math
 
 ## Getting Started
 
@@ -35,17 +38,23 @@ docker compose up --build
 
 The API will be available at `http://localhost:8080`.
 
+### Run the tests
+
+```bash
+dotnet test tests/Peregrine.Api.Tests/Peregrine.Api.Tests.csproj
+```
+
 ## Configuration
 
 Drone behaviour is controlled by `config/drone.yaml`:
 
 ```yaml
 drone:
-  id: "peregrine-1"
+  id: "550e8400-e29b-41d4-a716-446655440000"
   name: "Peregrine"
   homePosition:
-    latitude: 24.46667 
-    longitude: 54.36667
+    latitude: 24.414516   # Abu Dhabi, UAE
+    longitude: 54.456488
     altitude: 0.0
   performance:
     maxSpeedMps: 15.0
@@ -55,11 +64,11 @@ drone:
   battery:
     initialChargePercent: 100.0
     drainRates:
-      idlePerSecond: 0.02
-      hoveringPerSecond: 0.15
-      flyingPerSecond: 0.25
-      takeoffLandingPerSecond: 0.20
-      chargeRatePerSecond: 0.5
+      idlePerSecond: 0.00001
+      hoveringPerSecond: 0.001
+      flyingPerSecond: 0.005
+      takeoffLandingPerSecond: 0.007
+      chargeRatePerSecond: 0.10
     emergencyLandThresholdPercent: 10.0
   simulation:
     tickIntervalMs: 500
@@ -120,20 +129,59 @@ Offline ──power on──► Idle ──takeoff──► TakingOff ──► 
 
 Battery below the emergency threshold triggers an automatic landing from any airborne state.
 
+## Tools
+
+Two standalone HTML tools are included in the `tools/` directory. Open them directly in a browser — no build step required.
+
+### SSE Event Monitor (`tools/sse-monitor/index.html`)
+
+A minimal debug page for inspecting raw SSE streams. Enter any SSE endpoint URL, click **Connect**, and watch incoming events appear in a scrollable log. Useful for verifying that `GET /drone/telemetry` is streaming correctly.
+
+### Drone Mapper (`tools/drone-mapper/index.html`)
+
+A live map interface built with Leaflet that subscribes to `GET /drone/telemetry` and plots the drone's position in real time. Features include:
+
+- Animated drone marker that rotates to the current heading
+- Flight trail polyline (last 300 GPS fixes)
+- Status panel showing state badge, battery bar, speed, altitude, and waypoint queue depth
+- Auto-follow mode that re-centres the map on every telemetry update
+- Dark-themed UI with colour-coded drone state badges
+
+Default endpoint: `http://localhost:5180/drone/telemetry`
+
+## HTTP Request Files
+
+Feature-scoped `.http` files for all 13 API endpoints are in the `request/` folder (VS Code REST Client format):
+
+| File | Endpoints covered |
+|------|-------------------|
+| `_variables.http` | Shared base URL variable |
+| `power.http` | `POST /drone/power/on\|off` |
+| `flight.http` | `POST /drone/takeoff\|land\|hover\|navigate` |
+| `waypoints.http` | `POST\|DELETE /drone/waypoints` |
+| `telemetry.http` | `GET /drone/status` and `/drone/telemetry` |
+| `battery.http` | `GET\|POST /drone/battery` and recharge endpoints |
+
 ## Project Structure
 
 ```
 Peregrine/
 ├── config/
-│   └── drone.yaml          # Drone simulation configuration
+│   └── drone.yaml              # Drone simulation configuration
+├── request/                    # VS Code REST Client .http files
 ├── src/
-│   └── Peregrine.Api/      # ASP.NET Core API project
-│       ├── Endpoints/      # API endpoint handlers
-│       ├── Models/         # Domain models and DTOs
-│       ├── Services/       # Background simulator and telemetry broadcaster
-│       └── Program.cs      # Application entry point
+│   └── Peregrine.Api/          # ASP.NET Core API project
+│       ├── Domain/             # Domain models (DroneState, DroneStatus, etc.)
+│       ├── Features/           # Vertical slices (Battery, Flight, Power, Telemetry, Waypoints)
+│       ├── Infrastructure/     # DroneContext, FlightSimulatorService, GeoMath, TelemetryBroadcaster
+│       └── Program.cs          # Application entry point
+├── tests/
+│   └── Peregrine.Api.Tests/    # xUnit unit + integration tests (161 tests)
+├── tools/
+│   ├── drone-mapper/           # Live map visualisation (Leaflet, plain HTML)
+│   └── sse-monitor/            # SSE debug viewer (plain HTML)
 ├── docker-compose.yml
-└── Peregrine.sln
+└── Peregrine.slnx
 ```
 
 ## Tech Stack
@@ -145,4 +193,7 @@ Peregrine/
 | Configuration | YAML (`NetEscapades.Configuration.Yaml`) |
 | API Docs | OpenAPI + Scalar UI |
 | Real-time | Server-Sent Events (SSE) |
-| Containerisation | Docker (multi-stage build) |
+| Logging | Serilog (structured JSON / text) |
+| Containerisation | Docker (multi-stage, Alpine runtime) |
+| Testing | xUnit · WebApplicationFactory · FluentAssertions |
+| Map (tool) | Leaflet 1.9 |
