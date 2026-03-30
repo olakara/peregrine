@@ -88,7 +88,7 @@ try
     app.MapScalarApiReference(opts =>
     {
         opts.Title = "Peregrine Drone Simulator API";
-        opts.Theme = ScalarTheme.Mars;
+        opts.Theme = ScalarTheme.Solarized;
     });
 
     // Auto-register all IEndpoint slices via reflection

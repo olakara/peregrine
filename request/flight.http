@@ -59,7 +59,7 @@ PUT {{baseUrl}}/drone/speed
 Content-Type: application/json
 
 {
-  "speedMps": 15.0
+  "speedMps": 10.0
 }
 
 ###
