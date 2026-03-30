@@ -819,9 +819,8 @@ public sealed class DroneContextTests
         ForceState(drone, DroneState.Flying);
         drone.ReturnHome(); // flag set
 
-        // Must hover first (LoadWaypoints doesn't require non-Flying; actually it's allowed from any non-Offline)
-        // But we need to test that LoadWaypoints alone clears the flag
-        // ReturnHome transitions Hovering→Flying so state is Flying; LoadWaypoints is allowed from Flying
+        // LoadWaypoints is allowed from any non-Offline state (including Flying); this test verifies that
+        // calling LoadWaypoints alone after ReturnHome is enough to clear the IsReturningHome flag.
         drone.LoadWaypoints([new Domain.Waypoint(1, 1, 10)]);
 
         drone.IsReturningHome.Should().BeFalse();
