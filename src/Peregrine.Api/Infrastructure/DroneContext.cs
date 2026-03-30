@@ -18,6 +18,8 @@ public sealed class DroneContext
     private double _speedMps;
     private double _batteryPercent;
     private double _targetAltitude;
+    private double? _desiredSpeedMps;
+    private bool _returningHome;
     private readonly Queue<Waypoint> _waypointQueue = new();
 
     public DroneContext(IOptions<DroneConfiguration> options)
@@ -49,6 +51,8 @@ public sealed class DroneContext
                 return (false, $"Cannot power off from state {_state}. Drone must be on the ground (Idle or Charging).");
             _state = DroneState.Offline;
             _speedMps = 0;
+            _desiredSpeedMps = null;
+            _returningHome = false;
             return (true, null);
         }
     }
@@ -81,6 +85,7 @@ public sealed class DroneContext
                 return (false, $"Cannot land from state {_state}. Drone must be Hovering or Flying.");
             _state = DroneState.Landing;
             _speedMps = 0;
+            _returningHome = false;
             return (true, null);
         }
     }
@@ -93,6 +98,7 @@ public sealed class DroneContext
                 return (false, $"Cannot hover from state {_state}. Drone must be Flying.");
             _state = DroneState.Hovering;
             _speedMps = 0;
+            _returningHome = false;
             return (true, null);
         }
     }
@@ -145,6 +151,7 @@ public sealed class DroneContext
             foreach (var wp in waypoints)
                 _waypointQueue.Enqueue(wp);
 
+            _returningHome = false;
             return (true, null);
         }
     }
@@ -156,6 +163,41 @@ public sealed class DroneContext
             if (_state == DroneState.Flying)
                 return (false, "Cannot clear waypoints while Flying. Hover first.");
             _waypointQueue.Clear();
+            return (true, null);
+        }
+    }
+
+    public (bool Success, string? Error) SetSpeed(double speedMps)
+    {
+        lock (_lock)
+        {
+            if (_state == DroneState.Offline)
+                return (false, "Drone is offline. Power on first.");
+            if (speedMps <= 0)
+                return (false, "Speed must be greater than 0 m/s.");
+            if (speedMps > _config.Performance.MaxSpeedMps)
+                return (false, $"Speed {speedMps:F1} m/s exceeds maximum allowed speed of {_config.Performance.MaxSpeedMps:F1} m/s.");
+            _desiredSpeedMps = speedMps;
+            return (true, null);
+        }
+    }
+
+    public (bool Success, string? Error) ReturnHome()
+    {
+        lock (_lock)
+        {
+            if (_state is not (DroneState.Hovering or DroneState.Flying))
+                return (false, $"Cannot return home from state {_state}. Drone must be Hovering or Flying.");
+
+            var home = _config.HomePosition;
+            _waypointQueue.Clear();
+            // Use current altitude so the drone flies level to home, then auto-lands on arrival
+            _waypointQueue.Enqueue(new Waypoint(home.Latitude, home.Longitude, _position.Altitude));
+            _returningHome = true;
+
+            if (_state == DroneState.Hovering)
+                _state = DroneState.Flying;
+
             return (true, null);
         }
     }
@@ -239,6 +281,7 @@ public sealed class DroneContext
             {
                 _state = DroneState.Landing;
                 _speedMps = 0;
+                _returningHome = false;
             }
         }
     }
@@ -293,4 +336,6 @@ public sealed class DroneContext
     public DroneState State { get { lock (_lock) return _state; } }
     public double BatteryPercent { get { lock (_lock) return _batteryPercent; } }
     public GpsCoordinate Position { get { lock (_lock) return _position; } }
+    public double? DesiredSpeedMps { get { lock (_lock) return _desiredSpeedMps; } }
+    public bool IsReturningHome { get { lock (_lock) return _returningHome; } }
 }

@@ -121,7 +121,7 @@ public class FlightSimulatorService : BackgroundService
         }
 
         var current = _drone.Position;
-        var speedMps = waypoint.SpeedMps ?? _config.Performance.MaxSpeedMps;
+        var speedMps = waypoint.SpeedMps ?? _drone.DesiredSpeedMps ?? _config.Performance.MaxSpeedMps;
 
         var distanceMeters = GeoMath.HaversineDistance(
             current.Latitude, current.Longitude,
@@ -148,7 +148,15 @@ public class FlightSimulatorService : BackgroundService
             if (_drone.WaypointQueueDepth() == 0)
             {
                 _drone.TransitionToHovering();
-                _logger.LogInformation("All waypoints completed. Hovering.");
+                if (_drone.IsReturningHome)
+                {
+                    _drone.Land();
+                    _logger.LogInformation("Returned to home position. Auto-landing.");
+                }
+                else
+                {
+                    _logger.LogInformation("All waypoints completed. Hovering.");
+                }
             }
         }
         else
