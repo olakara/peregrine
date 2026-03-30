@@ -196,4 +196,125 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
+
+    // --- SetSpeed ---
+
+    [Fact]
+    public async Task SetSpeed_FromHovering_Returns200AndUpdatesStatus()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+
+        var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 8.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<MessageStatusResponse>();
+        body!.Message.Should().Contain("8.0 m/s");
+    }
+
+    [Fact]
+    public async Task SetSpeed_FromIdle_Returns200()
+    {
+        _factory.ResetDrone();
+        _factory.GetDroneContext().PowerOn();
+
+        var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 5.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SetSpeed_FromOffline_Returns409()
+    {
+        _factory.ResetDrone(); // leaves drone Offline
+
+        var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 5.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task SetSpeed_AboveMaxSpeed_Returns409()
+    {
+        _factory.ResetDrone();
+        _factory.GetDroneContext().PowerOn();
+
+        var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 999.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        body!.Error.Should().Contain("exceeds maximum");
+    }
+
+    [Fact]
+    public async Task SetSpeed_Zero_Returns409()
+    {
+        _factory.ResetDrone();
+        _factory.GetDroneContext().PowerOn();
+
+        var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 0.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    // --- ReturnHome ---
+
+    [Fact]
+    public async Task ReturnHome_FromHovering_Returns200AndFlyingState()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+
+        var response = await _client.PostAsync("/drone/return-home", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<MessageStatusResponse>();
+        body!.Status!.State.Should().Be("Flying");
+        body.Message.Should().Contain("home");
+    }
+
+    [Fact]
+    public async Task ReturnHome_FromFlying_Returns200AndFlyingState()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+        drone.LoadWaypoints([new Waypoint(1.0, 1.0, 10.0)]);
+        drone.Navigate();
+
+        var response = await _client.PostAsync("/drone/return-home", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<MessageStatusResponse>();
+        body!.Status!.State.Should().Be("Flying");
+    }
+
+    [Fact]
+    public async Task ReturnHome_FromIdle_Returns409()
+    {
+        _factory.ResetDrone();
+        _factory.GetDroneContext().PowerOn();
+
+        var response = await _client.PostAsync("/drone/return-home", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task ReturnHome_FromOffline_Returns409()
+    {
+        _factory.ResetDrone(); // leaves drone Offline
+
+        var response = await _client.PostAsync("/drone/return-home", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

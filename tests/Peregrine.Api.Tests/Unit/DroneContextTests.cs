@@ -618,6 +618,228 @@ public sealed class DroneContextTests
         drone.WaypointQueueDepth().Should().Be(1);
     }
 
+    // --- SetSpeed ---
+
+    [Fact]
+    public void SetSpeed_FromIdle_SetsDesiredSpeed()
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.SetSpeed(10.0);
+
+        success.Should().BeTrue();
+        error.Should().BeNull();
+        drone.DesiredSpeedMps.Should().Be(10.0);
+    }
+
+    [Fact]
+    public void SetSpeed_FromHovering_SetsDesiredSpeed()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.SetSpeed(8.0);
+
+        success.Should().BeTrue();
+        drone.DesiredSpeedMps.Should().Be(8.0);
+    }
+
+    [Fact]
+    public void SetSpeed_FromOffline_ReturnsError()
+    {
+        var drone = DroneContextFactory.Create();
+
+        var (success, error) = drone.SetSpeed(5.0);
+
+        success.Should().BeFalse();
+        error.Should().NotBeNullOrEmpty();
+        drone.DesiredSpeedMps.Should().BeNull();
+    }
+
+    [Fact]
+    public void SetSpeed_AboveMaxSpeed_ReturnsError()
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.SetSpeed(999.0);
+
+        success.Should().BeFalse();
+        error.Should().Contain("exceeds maximum");
+        drone.DesiredSpeedMps.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-1.0)]
+    public void SetSpeed_ZeroOrNegative_ReturnsError(double speed)
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.SetSpeed(speed);
+
+        success.Should().BeFalse();
+        error.Should().Contain("greater than 0");
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void SetSpeed_NonFiniteValue_ReturnsError(double speed)
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.SetSpeed(speed);
+
+        success.Should().BeFalse();
+        error.Should().Contain("finite");
+        drone.DesiredSpeedMps.Should().BeNull();
+    }
+
+    [Fact]
+    public void SetSpeed_ResetsToNullOnPowerOff()
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+        drone.SetSpeed(10.0);
+
+        drone.PowerOff();
+
+        drone.DesiredSpeedMps.Should().BeNull();
+    }
+
+    // --- ReturnHome ---
+
+    [Fact]
+    public void ReturnHome_FromHovering_TransitionsToFlying()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.ReturnHome();
+
+        success.Should().BeTrue();
+        error.Should().BeNull();
+        drone.State.Should().Be(DroneState.Flying);
+    }
+
+    [Fact]
+    public void ReturnHome_FromFlying_RemainsFlying()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Flying);
+
+        var (success, error) = drone.ReturnHome();
+
+        success.Should().BeTrue();
+        drone.State.Should().Be(DroneState.Flying);
+    }
+
+    [Theory]
+    [InlineData(DroneState.Offline)]
+    [InlineData(DroneState.Idle)]
+    [InlineData(DroneState.TakingOff)]
+    [InlineData(DroneState.Landing)]
+    [InlineData(DroneState.Charging)]
+    public void ReturnHome_FromNonAirborneState_ReturnsError(DroneState startState)
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, startState);
+
+        var (success, error) = drone.ReturnHome();
+
+        success.Should().BeFalse();
+        error.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void ReturnHome_ClearsExistingWaypointsAndLoadsHomeAsOnlyWaypoint()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+        drone.LoadWaypoints([new Domain.Waypoint(50, 50, 100), new Domain.Waypoint(60, 60, 100)]);
+        // re-enter Hovering state (LoadWaypoints doesn't change state)
+
+        drone.ReturnHome();
+
+        drone.WaypointQueueDepth().Should().Be(1);
+        var homeWp = drone.PeekNextWaypoint();
+        var nonNullHomeWp = homeWp!;
+        nonNullHomeWp.Latitude.Should().Be(0.0);   // DroneContextFactory home: lat=0, lon=0
+        nonNullHomeWp.Longitude.Should().Be(0.0);
+        // Altitude should match the drone's current altitude, not home.Altitude=0
+        // (drone flies level to home, then auto-lands on arrival)
+        nonNullHomeWp.Altitude.Should().Be(drone.Position.Altitude);
+    }
+
+    [Fact]
+    public void ReturnHome_SetsIsReturningHomeFlag()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        drone.ReturnHome();
+
+        drone.IsReturningHome.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Hover_AfterReturnHome_ClearsReturningHomeFlag()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Flying);
+        drone.ReturnHome(); // state stays Flying, flag set
+
+        drone.Hover();
+
+        drone.IsReturningHome.Should().BeFalse();
+        drone.State.Should().Be(DroneState.Hovering);
+    }
+
+    [Fact]
+    public void Land_AfterReturnHome_ClearsReturningHomeFlag()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+        drone.ReturnHome(); // transitions to Flying
+
+        drone.Land();
+
+        drone.IsReturningHome.Should().BeFalse();
+        drone.State.Should().Be(DroneState.Landing);
+    }
+
+    [Fact]
+    public void LoadWaypoints_AfterReturnHome_ClearsReturningHomeFlag()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Flying);
+        drone.ReturnHome(); // flag set
+
+        // LoadWaypoints is allowed from any non-Offline state (including Flying); this test verifies that
+        // calling LoadWaypoints alone after ReturnHome is enough to clear the IsReturningHome flag.
+        drone.LoadWaypoints([new Domain.Waypoint(1, 1, 10)]);
+
+        drone.IsReturningHome.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ForceLand_AfterReturnHome_ClearsReturningHomeFlag()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+        drone.ReturnHome();
+
+        drone.ForceLand();
+
+        drone.IsReturningHome.Should().BeFalse();
+        drone.State.Should().Be(DroneState.Landing);
+    }
+
     // --- Helpers ---
 
     /// <summary>
