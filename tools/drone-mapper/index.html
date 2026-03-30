@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Mapper</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Top bar ── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+        }
+        .toolbar h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #58a6ff;
+            white-space: nowrap;
+            margin-right: 6px;
+        }
+        .toolbar input[type="text"] {
+            flex: 1;
+            padding: 6px 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            min-width: 0;
+        }
+        .toolbar input[type="text"]:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.15s;
+        }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+        .btn-connect    { background: #238636; color: #fff; }
+        .btn-disconnect { background: #da3633; color: #fff; }
+        .btn-secondary  { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-secondary:hover:not(:disabled) { background: #30363d; }
+
+        .auto-follow-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #8b949e;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        .auto-follow-label input { cursor: pointer; accent-color: #58a6ff; }
+
+        /* ── Main content ── */
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Status panel ── */
+        .status-panel {
+            width: 220px;
+            flex-shrink: 0;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            padding: 14px 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .panel-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #8b949e;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 4px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .stat-label { color: #8b949e; }
+        .stat-value { font-weight: 500; color: #e6edf3; }
+
+        /* Connection status */
+        .conn-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+        }
+        .conn-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #3d3d3d;
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .conn-dot.connected    { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .conn-dot.disconnected { background: #da3633; }
+        .conn-text { color: #8b949e; font-size: 13px; }
+
+        /* State badge */
+        .state-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .state-Offline    { background: #21262d; color: #8b949e; }
+        .state-Idle       { background: #1f2d3d; color: #79c0ff; }
+        .state-TakingOff  { background: #1e2d1e; color: #56d364; }
+        .state-Flying     { background: #1e2d3e; color: #58a6ff; }
+        .state-Hovering   { background: #261d3d; color: #bc8cff; }
+        .state-Landing    { background: #2d2016; color: #e3b341; }
+        .state-Charging   { background: #2d1f05; color: #f0883e; }
+
+        /* Battery bar */
+        .battery-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .battery-bar-wrap {
+            flex: 1;
+            height: 8px;
+            background: #21262d;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .battery-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s, background 0.4s;
+        }
+        .battery-bar-fill.high   { background: #3fb950; }
+        .battery-bar-fill.medium { background: #e3b341; }
+        .battery-bar-fill.low    { background: #da3633; }
+        .battery-pct { font-size: 12px; font-weight: 600; color: #e6edf3; white-space: nowrap; }
+        .charging-icon { font-size: 13px; }
+
+        /* Map */
+        #map {
+            flex: 1;
+            background: #1c2128;
+        }
+
+        /* Drone marker icon */
+        .drone-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .drone-icon svg {
+            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.7));
+        }
+
+        /* Leaflet dark overrides */
+        .leaflet-container { background: #1c2128; }
+        .leaflet-control-zoom a {
+            background: #161b22 !important;
+            color: #c9d1d9 !important;
+            border-color: #30363d !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: #21262d !important;
+        }
+        .leaflet-control-attribution {
+            background: rgba(22, 27, 34, 0.8) !important;
+            color: #8b949e !important;
+        }
+        .leaflet-control-attribution a { color: #58a6ff !important; }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <h1>✈ Drone Mapper</h1>
+        <input type="text" id="url-input"
+               placeholder="SSE endpoint URL"
+               value="http://localhost:5180/drone/telemetry" />
+        <button id="connect-btn"    class="btn btn-connect">Connect</button>
+        <button id="disconnect-btn" class="btn btn-disconnect" disabled>Disconnect</button>
+        <button id="clear-btn"      class="btn btn-secondary" title="Remove flight trail from map">Clear Trail</button>
+        <button id="centre-btn"     class="btn btn-secondary" title="Fly map to last known drone position">Centre</button>
+        <label class="auto-follow-label" title="Re-centre map on every telemetry update">
+            <input type="checkbox" id="auto-follow" checked> Auto-follow
+        </label>
+    </div>
+
+    <div class="main">
+        <div class="status-panel">
+
+            <!-- Connection -->
+            <div class="panel-section">
+                <div class="panel-section-title">Connection</div>
+                <div class="conn-row">
+                    <div class="conn-dot disconnected" id="conn-dot"></div>
+                    <span class="conn-text" id="conn-text">Disconnected</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Last event</span>
+                    <span class="stat-value" id="last-update">—</span>
+                </div>
+            </div>
+
+            <!-- Identity -->
+            <div class="panel-section">
+                <div class="panel-section-title">Drone</div>
+                <div class="stat-row">
+                    <span class="stat-label">Name</span>
+                    <span class="stat-value" id="drone-name">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">State</span>
+                    <span id="drone-state"><span class="state-badge state-Offline">Offline</span></span>
+                </div>
+            </div>
+
+            <!-- Position -->
+            <div class="panel-section">
+                <div class="panel-section-title">Position</div>
+                <div class="stat-row">
+                    <span class="stat-label">Latitude</span>
+                    <span class="stat-value" id="lat">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Longitude</span>
+                    <span class="stat-value" id="lng">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Altitude</span>
+                    <span class="stat-value" id="alt">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Heading</span>
+                    <span class="stat-value" id="heading">—</span>
+                </div>
+            </div>
+
+            <!-- Flight -->
+            <div class="panel-section">
+                <div class="panel-section-title">Flight</div>
+                <div class="stat-row">
+                    <span class="stat-label">Speed</span>
+                    <span class="stat-value" id="speed">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Waypoints</span>
+                    <span class="stat-value" id="waypoints">—</span>
+                </div>
+            </div>
+
+            <!-- Power -->
+            <div class="panel-section">
+                <div class="panel-section-title">Power</div>
+                <div class="battery-container">
+                    <div class="battery-bar-wrap">
+                        <div class="battery-bar-fill high" id="battery-fill" style="width:0%"></div>
+                    </div>
+                    <span class="battery-pct" id="battery-pct">—</span>
+                    <span class="charging-icon" id="charging-icon" style="display:none">⚡</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ── Constants ──────────────────────────────────────────────────────────
+        const MAX_TRAIL_POINTS = 300;
+
+        const STATE_CLASSES = [
+            'state-Offline', 'state-Idle', 'state-TakingOff',
+            'state-Flying', 'state-Hovering', 'state-Landing', 'state-Charging'
+        ];
+
+        // Compass label from degrees
+        function compassLabel(deg) {
+            const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+            return dirs[Math.round(deg / 45) % 8];
+        }
+
+        // SVG drone arrow (points up = 0° heading; rotated via CSS)
+        function droneIconSvg(size = 32) {
+            return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
+                <polygon points="16,2 22,28 16,24 10,28" fill="#58a6ff" stroke="#0d1117" stroke-width="1.5"/>
+            </svg>`;
+        }
+
+        // ── Map setup ──────────────────────────────────────────────────────────
+        const map = L.map('map', { zoomControl: true }).setView([0, 0], 2);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Trail polyline
+        const trailLatLngs = [];
+        const trail = L.polyline([], {
+            color: '#2979ff',
+            weight: 2,
+            opacity: 0.7
+        }).addTo(map);
+
+        // Drone marker (positioned at [0,0] initially, hidden until first fix)
+        let droneHeading = 0;
+        const droneIcon = L.divIcon({
+            className: 'drone-icon',
+            html: droneIconSvg(32),
+            iconSize:   [32, 32],
+            iconAnchor: [16, 16]
+        });
+        const droneMarker = L.marker([0, 0], { icon: droneIcon });
+
+        let firstFix = false;
+
+        function updateMarkerHeading(deg) {
+            droneHeading = deg;
+            const el = droneMarker.getElement();
+            if (el) {
+                const svg = el.querySelector('svg');
+                if (svg) svg.style.transform = `rotate(${deg}deg)`;
+            }
+        }
+
+        // ── SSE state ──────────────────────────────────────────────────────────
+        let eventSource = null;
+
+        // ── DOM refs ───────────────────────────────────────────────────────────
+        const urlInput      = document.getElementById('url-input');
+        const connectBtn    = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const clearBtn      = document.getElementById('clear-btn');
+        const centreBtn     = document.getElementById('centre-btn');
+        const autoFollow    = document.getElementById('auto-follow');
+
+        const connDot     = document.getElementById('conn-dot');
+        const connText    = document.getElementById('conn-text');
+        const lastUpdate  = document.getElementById('last-update');
+        const droneName   = document.getElementById('drone-name');
+        const droneState  = document.getElementById('drone-state');
+        const latEl       = document.getElementById('lat');
+        const lngEl       = document.getElementById('lng');
+        const altEl       = document.getElementById('alt');
+        const headingEl   = document.getElementById('heading');
+        const speedEl     = document.getElementById('speed');
+        const waypointsEl = document.getElementById('waypoints');
+        const batteryFill = document.getElementById('battery-fill');
+        const batteryPct  = document.getElementById('battery-pct');
+        const chargingIcon= document.getElementById('charging-icon');
+
+        // ── UI helpers ─────────────────────────────────────────────────────────
+        function setConnected(connected) {
+            connDot.className  = 'conn-dot ' + (connected ? 'connected' : 'disconnected');
+            connText.textContent = connected ? 'Connected' : 'Disconnected';
+            connectBtn.disabled    = connected;
+            disconnectBtn.disabled = !connected;
+        }
+
+        function applyUpdate(s) {
+            // Identity
+            droneName.textContent = s.droneName ?? '—';
+
+            // State badge
+            const badgeClass = `state-${s.state}`;
+            droneState.innerHTML = `<span class="state-badge ${STATE_CLASSES.includes(badgeClass) ? badgeClass : 'state-Offline'}">${s.state ?? '—'}</span>`;
+
+            // Position
+            const lat = s.position?.latitude;
+            const lng = s.position?.longitude;
+            const alt = s.position?.altitude;
+            latEl.textContent     = lat != null ? lat.toFixed(6) : '—';
+            lngEl.textContent     = lng != null ? lng.toFixed(6) : '—';
+            altEl.textContent     = alt != null ? `${alt.toFixed(1)} m` : '—';
+
+            // Heading
+            const hdg = s.headingDegrees;
+            headingEl.textContent = hdg != null ? `${hdg.toFixed(1)}° ${compassLabel(hdg)}` : '—';
+
+            // Speed + waypoints
+            speedEl.textContent     = s.speedMps != null ? `${s.speedMps.toFixed(2)} m/s` : '—';
+            waypointsEl.textContent = s.waypointQueueDepth != null ? s.waypointQueueDepth : '—';
+
+            // Battery
+            const pct = s.batteryPercent ?? 0;
+            batteryFill.style.width = `${Math.min(100, pct).toFixed(1)}%`;
+            batteryFill.className = 'battery-bar-fill ' + (pct >= 50 ? 'high' : pct >= 20 ? 'medium' : 'low');
+            batteryPct.textContent = `${pct.toFixed(1)}%`;
+            chargingIcon.style.display = s.isCharging ? 'inline' : 'none';
+
+            // Timestamp
+            if (s.timestamp) {
+                lastUpdate.textContent = new Date(s.timestamp).toLocaleTimeString();
+            }
+
+            // Map update
+            if (lat != null && lng != null) {
+                const latlng = [lat, lng];
+
+                // Add to trail
+                trailLatLngs.push(latlng);
+                if (trailLatLngs.length > MAX_TRAIL_POINTS) {
+                    trailLatLngs.shift();
+                }
+                trail.setLatLngs(trailLatLngs);
+
+                // Move marker
+                droneMarker.setLatLng(latlng);
+                droneMarker.setTooltipContent(`${s.droneName} · ${s.state}`);
+
+                if (!firstFix) {
+                    droneMarker.addTo(map);
+                    droneMarker.bindTooltip('', { permanent: false, direction: 'top', offset: [0, -18] });
+                    map.flyTo(latlng, 15, { duration: 1.2 });
+                    firstFix = true;
+                } else if (autoFollow.checked) {
+                    map.panTo(latlng, { animate: true, duration: 0.3 });
+                }
+
+                // Apply heading rotation after marker is in DOM
+                requestAnimationFrame(() => updateMarkerHeading(hdg ?? 0));
+            }
+        }
+
+        // ── Connect / Disconnect ───────────────────────────────────────────────
+        function connect() {
+            const url = urlInput.value.trim();
+            if (!url) { alert('Please enter a URL'); return; }
+
+            eventSource = new EventSource(url);
+            setConnected(true);
+            connText.textContent = 'Connecting…';
+
+            eventSource.onopen = () => setConnected(true);
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const status = JSON.parse(event.data);
+                    applyUpdate(status);
+                } catch {
+                    // Ignore unparseable frames
+                }
+            };
+
+            eventSource.onerror = () => {
+                setConnected(false);
+                disconnect(false);
+            };
+        }
+
+        function disconnect(resetFirstFix = true) {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            setConnected(false);
+            if (resetFirstFix) firstFix = false;
+        }
+
+        connectBtn.onclick    = connect;
+        disconnectBtn.onclick = () => disconnect(true);
+
+        // ── Map controls ───────────────────────────────────────────────────────
+        clearBtn.onclick = () => {
+            trailLatLngs.length = 0;
+            trail.setLatLngs([]);
+        };
+
+        centreBtn.onclick = () => {
+            if (droneMarker && firstFix) {
+                map.flyTo(droneMarker.getLatLng(), map.getZoom(), { duration: 0.6 });
+            }
+        };
+    </script>
+</body>
+</html>

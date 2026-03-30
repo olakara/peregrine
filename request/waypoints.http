@@ -15,14 +15,20 @@ Content-Type: application/json
 
 [
   {
-    "latitude": 24.419248,
-    "longitude": 54.346518,
-    "altitude": 40.0,
+    "latitude": 24.403799,
+    "longitude": 54.471706,
+    "altitude": 140.0,
+    "speedMps": 15.0
+  },
+  {
+    "latitude": 24.390245,
+    "longitude": 54.479409,
+    "altitude": 140.0,
     "speedMps": 10.0
   }
 ]
 
-###
+### 
 
 ### Clear Waypoints
 # Empties the waypoint queue.
