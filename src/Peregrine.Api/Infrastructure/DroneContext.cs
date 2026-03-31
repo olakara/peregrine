@@ -19,6 +19,7 @@ public sealed class DroneContext
     private double _batteryPercent;
     private double _targetAltitude;
     private double? _desiredSpeedMps;
+    private double? _activeLegAltitudeOverride;
     private bool _returningHome;
     private readonly Queue<Waypoint> _waypointQueue = new();
 
@@ -184,6 +185,27 @@ public sealed class DroneContext
         }
     }
 
+    public (bool Success, string? Error) AdjustAltitude(double altitudeMeters)
+    {
+        lock (_lock)
+        {
+            if (_state is not (DroneState.Hovering or DroneState.Flying))
+                return (false, $"Cannot adjust altitude from state {_state}. Drone must be Hovering or Flying.");
+            if (!double.IsFinite(altitudeMeters))
+                return (false, "Altitude must be a finite number.");
+            if (altitudeMeters <= 0)
+                return (false, "Altitude must be greater than 0 meters.");
+            if (altitudeMeters > _config.Performance.MaxAltitudeMeters)
+                return (false, $"Altitude {altitudeMeters:F1}m exceeds the maximum allowed altitude of {_config.Performance.MaxAltitudeMeters:F1}m.");
+            _targetAltitude = altitudeMeters;
+            // For Flying state, override the current leg's altitude target so the
+            // simulator interpolates toward this value instead of the waypoint altitude.
+            if (_state == DroneState.Flying)
+                _activeLegAltitudeOverride = altitudeMeters;
+            return (true, null);
+        }
+    }
+
     public (bool Success, string? Error) ReturnHome()
     {
         lock (_lock)
@@ -300,7 +322,11 @@ public sealed class DroneContext
     {
         lock (_lock)
         {
-            return _waypointQueue.TryDequeue(out var wp) ? wp : null;
+            var wp = _waypointQueue.TryDequeue(out var w) ? w : (Waypoint?)null;
+            // Clear the per-leg altitude override so the next waypoint's altitude drives the next leg.
+            if (wp is not null)
+                _activeLegAltitudeOverride = null;
+            return wp;
         }
     }
 
@@ -312,6 +338,11 @@ public sealed class DroneContext
     public double TargetAltitude()
     {
         lock (_lock) return _targetAltitude;
+    }
+
+    public double? ActiveLegAltitudeOverride()
+    {
+        lock (_lock) return _activeLegAltitudeOverride;
     }
 
     // --- Snapshot ---

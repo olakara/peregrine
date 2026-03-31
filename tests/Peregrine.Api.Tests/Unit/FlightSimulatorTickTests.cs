@@ -224,6 +224,90 @@ public sealed class FlightSimulatorTickTests
         drone.Position.Altitude.Should().BeGreaterThan(startAlt);
     }
 
+    // --- Hovering altitude adjustment ---
+
+    [Fact]
+    public void TickHovering_DrainsBattery()
+    {
+        var (sim, drone) = CreateSim();
+        drone.PowerOn();
+        drone.TakeOff(10.0);
+        drone.TransitionToHovering();
+        var before = drone.BatteryPercent;
+
+        sim.PublicTick(0.5);
+
+        drone.BatteryPercent.Should().BeLessThan(before);
+        drone.State.Should().Be(DroneState.Hovering);
+    }
+
+    [Fact]
+    public void TickHovering_MovesAltitudeTowardNewTarget()
+    {
+        var (sim, drone) = CreateSim();
+        drone.PowerOn();
+        drone.TakeOff(10.0);
+        drone.TransitionToHovering();
+        drone.UpdatePosition(0.0, 0.0, 10.0, 0, 0); // at 10m
+        drone.AdjustAltitude(50.0); // new target: 50m
+
+        sim.PublicTick(0.5); // climbRate(3) × 0.5s = 1.5m
+
+        drone.Position.Altitude.Should().BeApproximately(11.5, 0.001);
+        drone.State.Should().Be(DroneState.Hovering);
+    }
+
+    [Fact]
+    public void TickHovering_NoMovementWhenAlreadyAtTarget()
+    {
+        var (sim, drone) = CreateSim();
+        drone.PowerOn();
+        drone.TakeOff(30.0);
+        drone.TransitionToHovering();
+        drone.UpdatePosition(0.0, 0.0, 30.0, 0, 0); // exactly at target
+
+        var startAlt = drone.Position.Altitude;
+        sim.PublicTick(0.5);
+
+        drone.Position.Altitude.Should().BeApproximately(startAlt, 0.001);
+    }
+
+    // --- Flying altitude override ---
+
+    [Fact]
+    public void TickFlying_WithAltitudeOverride_MovesTowardOverrideAltitude()
+    {
+        var (sim, drone) = CreateSim();
+        drone.PowerOn();
+        drone.TakeOff(10.0);
+        drone.TransitionToHovering();
+        drone.UpdatePosition(0.0, 0.0, 10.0, 0, 0);
+        drone.LoadWaypoints([new Waypoint(0.5, 0.0, 10.0)]); // waypoint also at 10m
+        drone.Navigate();
+        drone.AdjustAltitude(50.0); // override: fly at 50m instead
+
+        sim.PublicTick(0.5); // should climb toward 50m, not stay at 10m
+
+        drone.Position.Altitude.Should().BeGreaterThan(10.0);
+    }
+
+    [Fact]
+    public void TickFlying_WithoutAltitudeOverride_StillInterpolatesToWaypointAltitude()
+    {
+        var (sim, drone) = CreateSim();
+        drone.PowerOn();
+        drone.TakeOff(10.0);
+        drone.TransitionToHovering();
+        drone.UpdatePosition(0.0, 0.0, 10.0, 0, 0);
+        // Waypoint at altitude 50m — no AdjustAltitude called
+        drone.LoadWaypoints([new Waypoint(0.5, 0.0, 50.0)]);
+        drone.Navigate();
+
+        sim.PublicTick(0.5);
+
+        drone.Position.Altitude.Should().BeGreaterThan(10.0); // still climbs via waypoint altitude
+    }
+
     // --- Charging ---
 
     [Fact]

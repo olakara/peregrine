@@ -840,6 +840,126 @@ public sealed class DroneContextTests
         drone.State.Should().Be(DroneState.Landing);
     }
 
+    // --- AdjustAltitude ---
+
+    [Theory]
+    [InlineData(DroneState.Hovering)]
+    [InlineData(DroneState.Flying)]
+    public void AdjustAltitude_FromHoveringOrFlying_SetsTargetAltitude(DroneState startState)
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, startState);
+
+        var (success, error) = drone.AdjustAltitude(60.0);
+
+        success.Should().BeTrue();
+        error.Should().BeNull();
+        drone.TargetAltitude().Should().Be(60.0);
+    }
+
+    [Theory]
+    [InlineData(DroneState.Offline)]
+    [InlineData(DroneState.Idle)]
+    [InlineData(DroneState.Charging)]
+    [InlineData(DroneState.TakingOff)]
+    [InlineData(DroneState.Landing)]
+    public void AdjustAltitude_FromInvalidState_ReturnsError(DroneState startState)
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, startState);
+
+        var (success, error) = drone.AdjustAltitude(60.0);
+
+        success.Should().BeFalse();
+        error.Should().Contain("Hovering or Flying");
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-10.0)]
+    public void AdjustAltitude_ZeroOrNegative_ReturnsError(double altitude)
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.AdjustAltitude(altitude);
+
+        success.Should().BeFalse();
+        error.Should().Contain("greater than 0");
+    }
+
+    [Fact]
+    public void AdjustAltitude_AboveMaxAltitude_ReturnsError()
+    {
+        var drone = DroneContextFactory.Create(cfg => cfg.Performance.MaxAltitudeMeters = 100.0);
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.AdjustAltitude(200.0);
+
+        success.Should().BeFalse();
+        error.Should().Contain("maximum");
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void AdjustAltitude_NonFiniteValue_ReturnsError(double altitude)
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.AdjustAltitude(altitude);
+
+        success.Should().BeFalse();
+        error.Should().Contain("finite");
+    }
+
+    [Fact]
+    public void AdjustAltitude_AtMaxAltitude_Succeeds()
+    {
+        var drone = DroneContextFactory.Create(cfg => cfg.Performance.MaxAltitudeMeters = 120.0);
+        ForceState(drone, DroneState.Hovering);
+
+        var (success, error) = drone.AdjustAltitude(120.0);
+
+        success.Should().BeTrue();
+        drone.TargetAltitude().Should().Be(120.0);
+    }
+
+    [Fact]
+    public void AdjustAltitude_WhileFlying_SetsActiveLegOverride()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Flying);
+
+        drone.AdjustAltitude(80.0);
+
+        drone.ActiveLegAltitudeOverride().Should().Be(80.0);
+    }
+
+    [Fact]
+    public void AdjustAltitude_WhileHovering_DoesNotSetActiveLegOverride()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Hovering);
+
+        drone.AdjustAltitude(80.0);
+
+        drone.ActiveLegAltitudeOverride().Should().BeNull();
+    }
+
+    [Fact]
+    public void DequeueWaypoint_ClearsActiveLegAltitudeOverride()
+    {
+        var drone = DroneContextFactory.Create();
+        ForceState(drone, DroneState.Flying);
+        drone.AdjustAltitude(80.0);
+
+        drone.DequeueWaypoint(); // dequeues the waypoint loaded by ForceState
+
+        drone.ActiveLegAltitudeOverride().Should().BeNull();
+    }
+
     // --- Helpers ---
 
     /// <summary>

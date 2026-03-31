@@ -317,4 +317,84 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
+
+    // --- AdjustAltitude ---
+
+    [Fact]
+    public async Task AdjustAltitude_FromHovering_Returns200AndUpdatesMessage()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+
+        var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 50.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<MessageStatusResponse>();
+        body!.Message.Should().Contain("50.0 m");
+        body.Status.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task AdjustAltitude_FromFlying_Returns200()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+        drone.LoadWaypoints([new Waypoint(1.0, 1.0, 10.0)]);
+        drone.Navigate();
+
+        var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 80.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AdjustAltitude_FromIdle_Returns409()
+    {
+        _factory.ResetDrone();
+        _factory.GetDroneContext().PowerOn();
+
+        var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 50.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        body!.Error.Should().Contain("Hovering or Flying");
+    }
+
+    [Fact]
+    public async Task AdjustAltitude_AboveMaxAltitude_Returns409()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+
+        var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 9999.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        body!.Error.Should().Contain("maximum");
+    }
+
+    [Fact]
+    public async Task AdjustAltitude_ZeroAltitude_Returns409()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+
+        var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 0.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        body!.Error.Should().Contain("greater than 0");
+    }
 }

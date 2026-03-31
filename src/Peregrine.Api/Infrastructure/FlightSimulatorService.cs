@@ -81,7 +81,7 @@ public class FlightSimulatorService : BackgroundService
                 break;
 
             case DroneState.Hovering:
-                DrainBattery(DroneState.Hovering, dt);
+                TickHovering(dt);
                 break;
 
             case DroneState.Idle:
@@ -107,6 +107,25 @@ public class FlightSimulatorService : BackgroundService
             _drone.TransitionToHovering();
             _logger.LogInformation("Drone reached altitude {Alt:F1}m, now hovering.", newAlt);
         }
+    }
+
+    private void TickHovering(double dt)
+    {
+        DrainBattery(DroneState.Hovering, dt);
+
+        var current = _drone.Position;
+        var targetAlt = _drone.TargetAltitude();
+
+        if (Math.Abs(current.Altitude - targetAlt) < 0.01)
+            return;
+
+        var climbRate = _config.Performance.TakeoffSpeedMps;
+        var newAlt = targetAlt > current.Altitude
+            ? Math.Min(current.Altitude + climbRate * dt, targetAlt)
+            : Math.Max(current.Altitude - climbRate * dt, targetAlt);
+
+        _drone.UpdatePosition(current.Latitude, current.Longitude, newAlt,
+            headingDegrees: 0, speedMps: climbRate);
     }
 
     private void TickFlying(double dt)
@@ -166,12 +185,14 @@ public class FlightSimulatorService : BackgroundService
                 current.Latitude, current.Longitude,
                 bearing, horizontalMove);
 
-            // Interpolate altitude toward waypoint altitude
-            var altDiff = waypoint.Altitude - current.Altitude;
+            // Interpolate altitude: use an explicit per-leg override (from AdjustAltitude) when
+            // set, otherwise interpolate toward the waypoint's designated arrival altitude.
+            var altTarget = _drone.ActiveLegAltitudeOverride() ?? waypoint.Altitude;
+            var altDiff = altTarget - current.Altitude;
             var altMove = _config.Performance.TakeoffSpeedMps * dt;
             var newAlt = altDiff >= 0
-                ? Math.Min(current.Altitude + altMove, waypoint.Altitude)
-                : Math.Max(current.Altitude - altMove, waypoint.Altitude);
+                ? Math.Min(current.Altitude + altMove, altTarget)
+                : Math.Max(current.Altitude - altMove, altTarget);
 
             _drone.UpdatePosition(newLat, newLon, newAlt, bearing, speedMps);
         }
