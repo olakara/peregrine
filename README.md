@@ -12,7 +12,7 @@ A drone flight simulator API built with ASP.NET Core 10. Peregrine exposes a RES
 - **OpenAPI docs** — interactive API documentation via Scalar UI
 - **Structured logging** — Serilog with compact JSON (production) or timestamped text (development) output, plus per-request HTTP logging
 - **CORS** — permissive `AllowAll` policy enabled for local development (restrict origins before deploying to production)
-- **Test suite** — 161 tests (97 unit + 64 integration) covering all endpoints, state transitions, battery logic, and GPS math
+- **Test suite** — 219 tests (111 unit + 51 integration) covering all endpoints, state transitions, battery logic, and GPS math
 
 ## Getting Started
 
@@ -94,6 +94,9 @@ All endpoints are under the `/drone` base path.
 | `POST` | `/drone/land` | Initiate landing (`Hovering/Flying → Landing → Idle`) |
 | `POST` | `/drone/hover` | Pause navigation and hover in place (`Flying → Hovering`) |
 | `POST` | `/drone/navigate` | Start navigating loaded waypoints (`Hovering → Flying`) |
+| `POST` | `/drone/return-home` | Navigate to home position and auto-land (`Hovering/Flying → Flying → Landing → Idle`) |
+| `PUT` | `/drone/speed` | Set cruise speed in m/s (any powered-on state; resets on power-off) |
+| `PUT` | `/drone/altitude` | Adjust target altitude while hovering or flying |
 
 ### Waypoints
 
@@ -121,10 +124,13 @@ All endpoints are under the `/drone` base path.
 
 ```
 Offline ──power on──► Idle ──takeoff──► TakingOff ──► Hovering ──navigate──► Flying
-                       ▲                                   │                     │
-                       │                              land/emergency          hover/land
-                       │                                   │                     │
-                       └──────────────── Landing ◄─────────┴─────────────────────┘
+   ▲                   │ ▲                                │                      │
+   │               recharge│                        land/emergency          hover/land
+   │                   ▼ │                                │                      │
+   └──power off──── Charging                           Landing ◄─────────────────┘
+                                                          │
+                                                          ▼
+                                                         Idle
 ```
 
 Battery below the emergency threshold triggers an automatic landing from any airborne state.
@@ -153,13 +159,13 @@ Default telemetry endpoints:
 
 ## HTTP Request Files
 
-Feature-scoped `.http` files for all 13 API endpoints are in the `request/` folder (VS Code REST Client format):
+Feature-scoped `.http` files for all 16 API endpoints are in the `request/` folder (VS Code REST Client format):
 
 | File | Endpoints covered |
 |------|-------------------|
 | `_variables.http` | Shared base URL variable |
 | `power.http` | `POST /drone/power/on`<br>`POST /drone/power/off` |
-| `flight.http` | `POST /drone/takeoff`<br>`POST /drone/land`<br>`POST /drone/hover`<br>`POST /drone/navigate` |
+| `flight.http` | `POST /drone/takeoff`<br>`POST /drone/land`<br>`POST /drone/hover`<br>`POST /drone/navigate`<br>`POST /drone/return-home`<br>`PUT /drone/speed`<br>`PUT /drone/altitude` |
 | `waypoints.http` | `POST /drone/waypoints`<br>`DELETE /drone/waypoints` |
 | `telemetry.http` | `GET /drone/status`<br>`GET /drone/telemetry` |
 | `battery.http` | `GET /drone/battery`<br>`POST /drone/battery/recharge`<br>`POST /drone/battery/recharge/stop` |
@@ -178,7 +184,7 @@ Peregrine/
 │       ├── Infrastructure/     # DroneContext, FlightSimulatorService, GeoMath, TelemetryBroadcaster
 │       └── Program.cs          # Application entry point
 ├── tests/
-│   └── Peregrine.Api.Tests/    # xUnit unit + integration tests (161 tests)
+│   └── Peregrine.Api.Tests/    # xUnit unit + integration tests (219 tests)
 ├── tools/
 │   ├── drone-mapper/           # Live map visualisation (Leaflet, plain HTML)
 │   └── sse-monitor/            # SSE debug viewer (plain HTML)
