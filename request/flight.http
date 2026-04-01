@@ -64,6 +64,27 @@ Content-Type: application/json
 
 ###
 
+### Adjust Altitude  (mid-flight, metres above ground)
+# Requires: Hovering or Flying state; must be > 0 and ≤ configured max altitude
+PUT {{baseUrl}}/drone/altitude
+Content-Type: application/json
+
+{
+  "altitudeMeters": 45.0
+}
+
+###
+
+### Adjust Altitude  (low pass — 15 m)
+PUT {{baseUrl}}/drone/altitude
+Content-Type: application/json
+
+{
+  "altitudeMeters": 15.0
+}
+
+###
+
 ### Land
 # Requires: Hovering or Flying state
 POST {{baseUrl}}/drone/land
