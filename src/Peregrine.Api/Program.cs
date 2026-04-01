@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpLogging;
 using NetEscapades.Configuration.Yaml;
 using Peregrine.Api;
+using Peregrine.Api.Features.Mission;
 using Peregrine.Api.Infrastructure;
 using Peregrine.Api.Infrastructure.Configuration;
 using Scalar.AspNetCore;
@@ -59,6 +60,7 @@ try
     // Core simulation services (all singletons — one drone, shared state)
     builder.Services.AddSingleton<DroneContext>();
     builder.Services.AddSingleton<TelemetryBroadcaster>();
+    builder.Services.AddSingleton<MissionPlanStore>();
     builder.Services.AddHostedService<FlightSimulatorService>();
 
     builder.Services.AddCors(options =>
@@ -100,6 +102,29 @@ try
     {
         var endpoint = (IEndpoint)Activator.CreateInstance(type)!;
         endpoint.MapEndpoints(app);
+    }
+
+    // Hydrate DroneContext from any persisted mission plan surviving a restart
+    var missionStore = app.Services.GetRequiredService<MissionPlanStore>();
+    var droneContext = app.Services.GetRequiredService<DroneContext>();
+    try
+    {
+        var savedPlan = missionStore.Load();
+        if (savedPlan is not null)
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<QGroundControlPlan>(
+                savedPlan, QGcPlanParser.JsonOptions);
+            if (parsed is not null)
+            {
+                var missionPlan = QGcPlanParser.Parse(parsed);
+                droneContext.LoadMissionPlan(missionPlan);
+                Log.Information("Restored mission plan from disk ({Count} waypoints).", missionPlan.Waypoints.Count);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to restore persisted mission plan — ignoring corrupt file.");
     }
 
     app.Run();

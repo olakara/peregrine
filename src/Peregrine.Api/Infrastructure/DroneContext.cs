@@ -22,6 +22,8 @@ public sealed class DroneContext
     private double? _activeLegAltitudeOverride;
     private bool _returningHome;
     private readonly Queue<Waypoint> _waypointQueue = new();
+    private MissionPlan? _missionPlan;
+    private bool _autoNavigateAfterHover;
 
     public DroneContext(IOptions<DroneConfiguration> options)
     {
@@ -73,6 +75,7 @@ public sealed class DroneContext
             if (_targetAltitude > _config.Performance.MaxAltitudeMeters)
                 _targetAltitude = _config.Performance.MaxAltitudeMeters;
 
+            _autoNavigateAfterHover = false;
             _state = DroneState.TakingOff;
             return (true, null);
         }
@@ -87,6 +90,7 @@ public sealed class DroneContext
             _state = DroneState.Landing;
             _speedMps = 0;
             _returningHome = false;
+            _autoNavigateAfterHover = false;
             return (true, null);
         }
     }
@@ -108,12 +112,31 @@ public sealed class DroneContext
     {
         lock (_lock)
         {
-            if (_state != DroneState.Hovering)
-                return (false, $"Cannot navigate from state {_state}. Drone must be Hovering.");
-            if (_waypointQueue.Count == 0)
-                return (false, "Waypoint queue is empty. Load waypoints before navigating.");
-            _state = DroneState.Flying;
-            return (true, null);
+            // Existing path: Hovering → Flying
+            if (_state == DroneState.Hovering)
+            {
+                if (_waypointQueue.Count == 0)
+                    return (false, "Waypoint queue is empty. Load waypoints before navigating.");
+                _state = DroneState.Flying;
+                return (true, null);
+            }
+
+            // New path: Idle + mission plan with Takeoff → TakingOff (auto-navigates once hovering)
+            if (_state == DroneState.Idle && _missionPlan?.HasTakeoff == true)
+            {
+                if (_batteryPercent <= _config.Battery.EmergencyLandThresholdPercent)
+                    return (false, $"Battery too low ({_batteryPercent:F1}%). Recharge before flight.");
+                if (_waypointQueue.Count == 0)
+                    return (false, "Mission plan has no navigation waypoints to execute.");
+
+                var alt = _missionPlan.TakeoffAltitude ?? _config.Performance.DefaultHoverAltitudeMeters;
+                _targetAltitude = Math.Min(alt, _config.Performance.MaxAltitudeMeters);
+                _state = DroneState.TakingOff;
+                _autoNavigateAfterHover = true;
+                return (true, null);
+            }
+
+            return (false, $"Cannot navigate from state {_state}. Drone must be Hovering (or Idle with a mission plan that includes a Takeoff command).");
         }
     }
 
@@ -148,6 +171,10 @@ public sealed class DroneContext
             if (_state is DroneState.Offline)
                 return (false, "Drone is offline. Power on first.");
 
+            // Manual waypoints replace any uploaded mission plan
+            _missionPlan = null;
+            _autoNavigateAfterHover = false;
+
             _waypointQueue.Clear();
             foreach (var wp in waypoints)
                 _waypointQueue.Enqueue(wp);
@@ -165,6 +192,78 @@ public sealed class DroneContext
                 return (false, "Cannot clear waypoints while Flying. Hover first.");
             _waypointQueue.Clear();
             return (true, null);
+        }
+    }
+
+    public (bool Success, string? Error) LoadMissionPlan(MissionPlan plan)
+    {
+        lock (_lock)
+        {
+            if (_state is DroneState.TakingOff or DroneState.Flying or DroneState.Landing)
+                return (false, "Cannot upload mission plan while airborne. Land first.");
+
+            _missionPlan = plan;
+            _autoNavigateAfterHover = false;
+
+            // Populate the waypoint queue from the plan's navigation waypoints
+            _waypointQueue.Clear();
+            foreach (var wp in plan.Waypoints)
+                _waypointQueue.Enqueue(wp);
+
+            // If plan includes RTL, append the home position as the final waypoint so
+            // the drone automatically returns home after completing all other waypoints.
+            if (plan.HasRtl)
+            {
+                var homePos = plan.PlannedHomePosition
+                    ?? new GpsCoordinate(_config.HomePosition.Latitude, _config.HomePosition.Longitude, _config.HomePosition.Altitude);
+                _waypointQueue.Enqueue(new Waypoint(homePos.Latitude, homePos.Longitude, homePos.Altitude));
+                _returningHome = true;
+            }
+            else
+            {
+                _returningHome = false;
+            }
+
+            return (true, null);
+        }
+    }
+
+    public (bool Success, string? Error) ClearMissionPlan()
+    {
+        lock (_lock)
+        {
+            if (_state is DroneState.TakingOff or DroneState.Flying or DroneState.Landing)
+                return (false, "Cannot clear mission plan while airborne. Land first.");
+            _missionPlan = null;
+            _autoNavigateAfterHover = false;
+            _waypointQueue.Clear();
+            _returningHome = false;
+            return (true, null);
+        }
+    }
+
+    public MissionPlan? GetMissionPlan()
+    {
+        lock (_lock) return _missionPlan;
+    }
+
+    /// <summary>
+    /// Called by FlightSimulatorService after TakingOff transitions to Hovering.
+    /// If a mission plan triggered this takeoff, auto-transitions to Flying.
+    /// Returns true when the transition occurred.
+    /// </summary>
+    public bool TryAutoNavigate()
+    {
+        lock (_lock)
+        {
+            if (!_autoNavigateAfterHover || _state != DroneState.Hovering || _waypointQueue.Count == 0)
+            {
+                _autoNavigateAfterHover = false;
+                return false;
+            }
+            _autoNavigateAfterHover = false;
+            _state = DroneState.Flying;
+            return true;
         }
     }
 
@@ -279,6 +378,7 @@ public sealed class DroneContext
                 return false;
             _state = DroneState.Idle;
             _speedMps = 0;
+            _autoNavigateAfterHover = false;
             var home = _config.HomePosition;
             _position = new GpsCoordinate(home.Latitude, home.Longitude, home.Altitude);
             return true;
@@ -306,6 +406,7 @@ public sealed class DroneContext
                 _state = DroneState.Landing;
                 _speedMps = 0;
                 _returningHome = false;
+                _autoNavigateAfterHover = false;
             }
         }
     }
@@ -371,4 +472,6 @@ public sealed class DroneContext
     public GpsCoordinate Position { get { lock (_lock) return _position; } }
     public double? DesiredSpeedMps { get { lock (_lock) return _desiredSpeedMps; } }
     public bool IsReturningHome { get { lock (_lock) return _returningHome; } }
+    /// <summary>True when the active mission plan ends with a Land command (auto-lands on waypoint completion).</summary>
+    public bool MissionHasAutoLand { get { lock (_lock) return _missionPlan?.HasLanding == true; } }
 }

@@ -14,7 +14,7 @@ public sealed class NavigateEndpoint : IEndpoint
                 : Results.Conflict(new { error });
         })
         .WithName("Navigate")
-        .WithSummary("Start navigating loaded waypoints (Hovering → Flying)")
+        .WithSummary("Start navigating loaded waypoints (Hovering → Flying, or Idle → TakingOff if mission plan includes a Takeoff command)")
         .WithTags("Flight");
     }
 }
