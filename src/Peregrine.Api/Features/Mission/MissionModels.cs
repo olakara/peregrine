@@ -201,11 +201,11 @@ internal static class QGcPlanParser
         if (paramsArray.ValueKind != JsonValueKind.Array)
             return null;
 
-        var elements = paramsArray.EnumerateArray().ToList();
-        if (index >= elements.Count)
+        var length = paramsArray.GetArrayLength();
+        if (index < 0 || index >= length)
             return null;
 
-        var el = elements[index];
+        var el = paramsArray[index];
         return el.ValueKind == JsonValueKind.Number ? el.GetDouble() : null;
     }
 
