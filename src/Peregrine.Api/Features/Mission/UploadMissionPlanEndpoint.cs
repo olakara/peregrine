@@ -48,13 +48,14 @@ public sealed class UploadMissionPlanEndpoint : IEndpoint
             if (!success)
                 return Results.Conflict(new { error });
 
-            store.Save(rawJson);
+            var persisted = store.Save(rawJson);
 
             return Results.Ok(new
             {
                 message = $"Mission plan uploaded. {drone.WaypointQueueDepth()} waypoint(s) loaded (including any RTL home waypoint).",
                 plan = QGcPlanParser.ToStatus(missionPlan),
-                status = drone.GetStatus()
+                status = drone.GetStatus(),
+                persistenceWarning = persisted ? null : "Mission loaded but could not be persisted to disk. The plan will not survive a restart."
             });
         })
         .WithName("UploadMissionPlan")

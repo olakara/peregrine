@@ -22,15 +22,17 @@ public sealed class MissionPlanStore
         _logger = logger;
     }
 
-    public void Save(string json)
+    public bool Save(string json)
     {
         try
         {
             File.WriteAllText(_planFilePath, json);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger?.LogWarning(ex, "Failed to persist mission plan to {Path}.", _planFilePath);
+            return false;
         }
     }
 
@@ -47,16 +49,18 @@ public sealed class MissionPlanStore
         }
     }
 
-    public void Clear()
+    public bool Clear()
     {
         try
         {
             if (File.Exists(_planFilePath))
                 File.Delete(_planFilePath);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger?.LogWarning(ex, "Failed to delete mission plan at {Path}.", _planFilePath);
+            return false;
         }
     }
 }

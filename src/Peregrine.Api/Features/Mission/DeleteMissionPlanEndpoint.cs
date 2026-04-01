@@ -12,9 +12,14 @@ public sealed class DeleteMissionPlanEndpoint : IEndpoint
             if (!success)
                 return Results.Conflict(new { error });
 
-            store.Clear();
+            var persisted = store.Clear();
 
-            return Results.Ok(new { message = "Mission plan cleared.", status = drone.GetStatus() });
+            return Results.Ok(new
+            {
+                message = "Mission plan cleared.",
+                status = drone.GetStatus(),
+                persistenceWarning = persisted ? null : "Mission cleared from memory but the plan file could not be deleted from disk."
+            });
         })
         .WithName("DeleteMissionPlan")
         .WithSummary("Clear the currently loaded mission plan")
