@@ -6,15 +6,21 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class TelemetryEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class TelemetryEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public TelemetryEndpointTests(DroneAppFactory factory)
+    public TelemetryEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     // --- GET /drone/status ---
@@ -22,7 +28,7 @@ public sealed class TelemetryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetStatus_Returns200WithDroneStatusFields()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.GetAsync("/drone/status");
 
@@ -37,7 +43,7 @@ public sealed class TelemetryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetStatus_ReflectsStateChange()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.GetAsync("/drone/status");
@@ -49,7 +55,7 @@ public sealed class TelemetryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetStatus_IncludesWaypointQueueDepth()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.LoadWaypoints([

@@ -6,15 +6,21 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class BatteryEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public BatteryEndpointTests(DroneAppFactory factory)
+    public BatteryEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     // --- GET /drone/battery ---
@@ -22,7 +28,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetBattery_ReturnsExpectedFields()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.GetAsync("/drone/battery");
 
@@ -36,7 +42,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetBattery_ReflectsCurrentBatteryLevel()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.DrainBattery(40.0);
 
@@ -49,7 +55,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetBattery_IsCharging_WhenCharging()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.DrainBattery(50.0);
@@ -67,7 +73,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task StartRecharge_FromIdleWithPartialBattery_Returns200AndChargingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.DrainBattery(50.0);
@@ -83,7 +89,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task StartRecharge_WhenBatteryFull_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn(); // starts at 100%
 
         var response = await _client.PostAsync("/drone/battery/recharge", null);
@@ -96,7 +102,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task StartRecharge_FromOffline_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/battery/recharge", null);
 
@@ -108,7 +114,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task StopRecharge_FromCharging_Returns200AndIdleState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.DrainBattery(50.0);
@@ -125,7 +131,7 @@ public sealed class BatteryEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task StopRecharge_WhenNotCharging_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/battery/recharge/stop", null);

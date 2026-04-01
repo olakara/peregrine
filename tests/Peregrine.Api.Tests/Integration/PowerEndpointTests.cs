@@ -7,21 +7,27 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class PowerEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class PowerEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public PowerEndpointTests(DroneAppFactory factory)
+    public PowerEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     [Fact]
     public async Task PowerOn_FromOffline_Returns200AndIdleState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/power/on", null);
 
@@ -33,7 +39,7 @@ public sealed class PowerEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task PowerOn_WhenAlreadyIdle_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         await _client.PostAsync("/drone/power/on", null);
 
         var response = await _client.PostAsync("/drone/power/on", null);
@@ -46,7 +52,7 @@ public sealed class PowerEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task PowerOff_FromIdle_Returns200AndOfflineState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         await _client.PostAsync("/drone/power/on", null);
 
         var response = await _client.PostAsync("/drone/power/off", null);
@@ -59,7 +65,7 @@ public sealed class PowerEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task PowerOff_WhenOffline_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/power/off", null);
 
@@ -69,7 +75,7 @@ public sealed class PowerEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task PowerOff_WhileCharging_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.DrainBattery(50.0);

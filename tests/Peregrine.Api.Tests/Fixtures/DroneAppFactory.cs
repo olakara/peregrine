@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using FluentAssertions;
 using Peregrine.Api.Domain;
 using Peregrine.Api.Infrastructure;
 
@@ -76,5 +77,27 @@ public sealed class DroneAppFactory : WebApplicationFactory<Program>
 
         // Restore battery to full so tests start with a clean slate
         drone.ChargeBattery(100.0);
+    }
+
+    /// <summary>
+    /// Resets drone state, then validates isolation invariants needed by integration tests.
+    /// </summary>
+    public void ResetDroneAndAssertCleanState()
+    {
+        ResetDrone();
+        AssertCleanState();
+    }
+
+    /// <summary>
+    /// Asserts the integration-test baseline state.
+    /// </summary>
+    public void AssertCleanState()
+    {
+        var drone = GetDroneContext();
+        drone.State.Should().Be(DroneState.Offline);
+        drone.BatteryPercent.Should().Be(100.0);
+        drone.WaypointQueueDepth().Should().Be(0);
+        drone.GetMissionPlan().Should().BeNull();
+        GetMissionPlanStore().Load().Should().BeNull();
     }
 }

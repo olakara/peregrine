@@ -10,15 +10,21 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class MissionEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public MissionEndpointTests(DroneAppFactory factory)
+    public MissionEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     // -----------------------------------------------------------------------
@@ -90,7 +96,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_ValidPlan_Returns200WithWaypointCount()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -103,7 +109,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_InvalidJson_Returns400()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/mission", PlanJson("not-json"));
 
@@ -113,7 +119,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WrongFileType_Returns400()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/mission",
             PlanJson("""{"fileType":"Fence","version":1,"mission":{"items":[],"version":2},"geoFence":{"circles":[],"polygons":[],"version":2},"rallyPoints":{"points":[],"version":2}}"""));
@@ -126,7 +132,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WrongVersion_Returns400()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var badPlan = SimplePlan.Replace("\"version\": 1,", "\"version\": 99,");
         var response = await _client.PostAsync("/drone/mission", PlanJson(badPlan));
@@ -139,7 +145,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WhileFlying_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -155,7 +161,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_LoadsWaypointsIntoQueue()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -166,7 +172,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_ReplacesManuallyLoadedWaypoints()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.LoadWaypoints([new Waypoint(1, 1, 10), new Waypoint(2, 2, 10), new Waypoint(3, 3, 10)]);
@@ -180,7 +186,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_PersistsToDisk()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -195,7 +201,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetMission_NoPlanLoaded_Returns404()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetMissionPlanStore().Clear();
 
         var response = await _client.GetAsync("/drone/mission");
@@ -206,7 +212,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task GetMission_AfterUpload_Returns200WithPlanSummary()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
 
@@ -225,7 +231,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task DeleteMission_ClearsPlan_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -240,7 +246,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task DeleteMission_WhileFlying_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -256,7 +262,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task DeleteMission_ClearsPersistedFile()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
 
@@ -272,7 +278,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromIdle_WithTakeoffPlan_Returns200AndTakingOffState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -286,7 +292,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromIdle_WithoutTakeoffInPlan_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
 
@@ -315,7 +321,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromHovering_WithPlan_WorksNormally()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -479,7 +485,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromIdle_WithNoplanAtAll_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         // No plan uploaded — raw Idle
@@ -493,7 +499,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromIdle_PlanWithTakeoffAndLandButNoWaypoints_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
 
@@ -526,7 +532,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WhileTakingOff_Returns409AndDroneStateUnchanged()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -541,7 +547,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task DeleteMission_WhileTakingOff_Returns409AndPlanPreserved()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
@@ -559,7 +565,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WhileFlying_Returns409AndDroneStatePreserved()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -578,7 +584,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task UploadMission_WhileHovering_Returns409AndDroneStateUnchanged()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -594,7 +600,7 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task DeleteMission_WhileHovering_Returns409AndPlanPreserved()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));

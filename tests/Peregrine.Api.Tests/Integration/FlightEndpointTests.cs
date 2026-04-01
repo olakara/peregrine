@@ -7,15 +7,21 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class FlightEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public FlightEndpointTests(DroneAppFactory factory)
+    public FlightEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     // --- TakeOff ---
@@ -23,7 +29,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task TakeOff_FromIdle_Returns200AndTakingOffState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/takeoff", null);
@@ -36,7 +42,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task TakeOff_WithAltitude_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsJsonAsync("/drone/takeoff", new { altitude = 50.0 });
@@ -47,7 +53,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task TakeOff_FromOffline_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsync("/drone/takeoff", null);
 
@@ -57,7 +63,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task TakeOff_WithLowBattery_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.DrainBattery(95.0); // leaves ~5%, below 10% emergency threshold
@@ -74,7 +80,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Land_FromHovering_Returns200AndLandingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -90,7 +96,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Land_FromFlying_Returns200AndLandingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -108,7 +114,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Land_FromIdle_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/land", null);
@@ -121,7 +127,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Hover_FromFlying_Returns200AndHoveringState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -139,7 +145,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Hover_FromHovering_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -155,7 +161,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromHoveringWithWaypoints_Returns200AndFlyingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -172,7 +178,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_WithEmptyWaypointQueue_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -189,7 +195,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task Navigate_FromIdle_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/navigate", null);
@@ -202,7 +208,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task SetSpeed_FromHovering_Returns200AndUpdatesStatus()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -218,7 +224,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task SetSpeed_FromIdle_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 5.0 });
@@ -229,7 +235,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task SetSpeed_FromOffline_Returns409()
     {
-        _factory.ResetDrone(); // leaves drone Offline
+        _factory.ResetDroneAndAssertCleanState(); // leaves drone Offline
 
         var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 5.0 });
 
@@ -239,7 +245,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task SetSpeed_AboveMaxSpeed_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 999.0 });
@@ -252,7 +258,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task SetSpeed_Zero_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PutAsJsonAsync("/drone/speed", new { speedMps = 0.0 });
@@ -265,7 +271,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ReturnHome_FromHovering_Returns200AndFlyingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -282,7 +288,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ReturnHome_FromFlying_Returns200AndFlyingState()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -300,7 +306,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ReturnHome_FromIdle_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsync("/drone/return-home", null);
@@ -311,7 +317,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ReturnHome_FromOffline_Returns409()
     {
-        _factory.ResetDrone(); // leaves drone Offline
+        _factory.ResetDroneAndAssertCleanState(); // leaves drone Offline
 
         var response = await _client.PostAsync("/drone/return-home", null);
 
@@ -323,7 +329,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task AdjustAltitude_FromHovering_Returns200AndUpdatesMessage()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -340,7 +346,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task AdjustAltitude_FromFlying_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -356,7 +362,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task AdjustAltitude_FromIdle_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PutAsJsonAsync("/drone/altitude", new { altitudeMeters = 50.0 });
@@ -369,7 +375,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task AdjustAltitude_AboveMaxAltitude_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
@@ -385,7 +391,7 @@ public sealed class FlightEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task AdjustAltitude_ZeroAltitude_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();

@@ -7,15 +7,21 @@ using Peregrine.Api.Tests.Helpers;
 
 namespace Peregrine.Api.Tests.Integration;
 
-public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
+public sealed class WaypointEndpointTests : IDisposable
 {
     private readonly HttpClient _client;
     private readonly DroneAppFactory _factory;
 
-    public WaypointEndpointTests(DroneAppFactory factory)
+    public WaypointEndpointTests()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = new DroneAppFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     // --- POST /drone/waypoints ---
@@ -23,7 +29,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task LoadWaypoints_WithValidList_Returns200AndQueueDepth()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsJsonAsync("/drone/waypoints", new[]
@@ -41,7 +47,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task LoadWaypoints_WithCustomSpeed_Returns200()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsJsonAsync("/drone/waypoints", new[]
@@ -55,7 +61,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task LoadWaypoints_WithEmptyBody_Returns400()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         var response = await _client.PostAsJsonAsync("/drone/waypoints", Array.Empty<object>());
@@ -66,7 +72,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task LoadWaypoints_WhenOffline_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
 
         var response = await _client.PostAsJsonAsync("/drone/waypoints", new[]
         {
@@ -79,7 +85,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task LoadWaypoints_ReplacesExistingQueue()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         _factory.GetDroneContext().PowerOn();
 
         await _client.PostAsJsonAsync("/drone/waypoints", new[]
@@ -102,7 +108,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ClearWaypoints_FromIdle_Returns200AndEmptyQueue()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.LoadWaypoints([new Waypoint(1, 1, 10)]);
@@ -117,7 +123,7 @@ public sealed class WaypointEndpointTests : IClassFixture<DroneAppFactory>
     [Fact]
     public async Task ClearWaypoints_WhileFlying_Returns409()
     {
-        _factory.ResetDrone();
+        _factory.ResetDroneAndAssertCleanState();
         var drone = _factory.GetDroneContext();
         drone.PowerOn();
         drone.TakeOff();
