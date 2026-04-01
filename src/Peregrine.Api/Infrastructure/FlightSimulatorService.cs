@@ -105,7 +105,10 @@ public class FlightSimulatorService : BackgroundService
         if (Math.Abs(newAlt - targetAlt) < 0.01)
         {
             _drone.TransitionToHovering();
-            _logger.LogInformation("Drone reached altitude {Alt:F1}m, now hovering.", newAlt);
+            if (_drone.TryAutoNavigate())
+                _logger.LogInformation("Auto-navigating after takeoff. State: Flying.");
+            else
+                _logger.LogInformation("Drone reached altitude {Alt:F1}m, now hovering.", newAlt);
         }
     }
 
@@ -136,6 +139,10 @@ public class FlightSimulatorService : BackgroundService
         if (waypoint is null)
         {
             _drone.TransitionToHovering();
+            if (_drone.IsReturningHome)
+                _drone.Land();
+            else if (_drone.MissionHasAutoLand)
+                _drone.Land();
             return;
         }
 
@@ -171,6 +178,11 @@ public class FlightSimulatorService : BackgroundService
                 {
                     _drone.Land();
                     _logger.LogInformation("Returned to home position. Auto-landing.");
+                }
+                else if (_drone.MissionHasAutoLand)
+                {
+                    _drone.Land();
+                    _logger.LogInformation("All waypoints completed. Auto-landing per mission plan.");
                 }
                 else
                 {
