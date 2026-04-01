@@ -52,7 +52,7 @@ public sealed class UploadMissionPlanEndpoint : IEndpoint
 
             return Results.Ok(new
             {
-                message = $"Mission plan uploaded. {missionPlan.Waypoints.Count} waypoint(s) loaded.",
+                message = $"Mission plan uploaded. {drone.WaypointQueueDepth()} waypoint(s) loaded (including any RTL home waypoint).",
                 plan = QGcPlanParser.ToStatus(missionPlan),
                 status = drone.GetStatus()
             });
