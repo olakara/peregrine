@@ -365,6 +365,45 @@ public sealed class DroneContextTests
         error.Should().NotBeNullOrEmpty();
     }
 
+    [Fact]
+    public void LoadWaypoints_WithAltitudeExceedingMax_ReturnsError()
+    {
+        var drone = DroneContextFactory.Create(cfg => cfg.Performance.MaxAltitudeMeters = 100.0);
+        drone.PowerOn();
+
+        var (success, error) = drone.LoadWaypoints([new Domain.Waypoint(1, 1, 101.0)]);
+
+        success.Should().BeFalse();
+        error.Should().Contain("101.0m").And.Contain("100.0m");
+        drone.WaypointQueueDepth().Should().Be(0);
+    }
+
+    [Fact]
+    public void LoadWaypoints_WithNegativeAltitude_ReturnsError()
+    {
+        var drone = DroneContextFactory.Create();
+        drone.PowerOn();
+
+        var (success, error) = drone.LoadWaypoints([new Domain.Waypoint(1, 1, -5.0)]);
+
+        success.Should().BeFalse();
+        error.Should().Contain("-5.0m");
+        drone.WaypointQueueDepth().Should().Be(0);
+    }
+
+    [Fact]
+    public void LoadWaypoints_InvalidAltitude_DoesNotModifyExistingQueue()
+    {
+        var drone = DroneContextFactory.Create(cfg => cfg.Performance.MaxAltitudeMeters = 100.0);
+        drone.PowerOn();
+        drone.LoadWaypoints([new Domain.Waypoint(1, 1, 50)]);
+
+        var (success, _) = drone.LoadWaypoints([new Domain.Waypoint(2, 2, 200.0)]);
+
+        success.Should().BeFalse();
+        drone.WaypointQueueDepth().Should().Be(1); // original queue untouched
+    }
+
     // --- ClearWaypoints ---
 
     [Theory]

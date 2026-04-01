@@ -171,12 +171,22 @@ public sealed class DroneContext
             if (_state is DroneState.Offline)
                 return (false, "Drone is offline. Power on first.");
 
+            var waypointList = waypoints.ToList();
+            for (var i = 0; i < waypointList.Count; i++)
+            {
+                var wp = waypointList[i];
+                if (wp.Altitude < 0)
+                    return (false, $"Waypoint {i + 1} has invalid altitude {wp.Altitude:F1}m. Altitude must be ≥ 0.");
+                if (wp.Altitude > _config.Performance.MaxAltitudeMeters)
+                    return (false, $"Waypoint {i + 1} altitude {wp.Altitude:F1}m exceeds the maximum allowed altitude of {_config.Performance.MaxAltitudeMeters:F1}m.");
+            }
+
             // Manual waypoints replace any uploaded mission plan
             _missionPlan = null;
             _autoNavigateAfterHover = false;
 
             _waypointQueue.Clear();
-            foreach (var wp in waypoints)
+            foreach (var wp in waypointList)
                 _waypointQueue.Enqueue(wp);
 
             _returningHome = false;

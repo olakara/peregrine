@@ -17,13 +17,13 @@ Content-Type: application/json
   {
     "latitude": 24.403799,
     "longitude": 54.471706,
-    "altitude": 140.0,
+    "altitude": 80.0,
     "speedMps": 15.0
   },
   {
     "latitude": 24.390245,
     "longitude": 54.479409,
-    "altitude": 140.0,
+    "altitude": 60.0,
     "speedMps": 10.0
   }
 ]
