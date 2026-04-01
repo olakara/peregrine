@@ -11,7 +11,7 @@ A drone flight simulator API built with ASP.NET Core 10. Peregrine exposes a RES
 - **YAML configuration** — all drone performance and simulation parameters are externally configurable
 - **OpenAPI docs** — interactive API documentation via Scalar UI
 - **Structured logging** — Serilog with compact JSON (production) or timestamped text (development) output, plus per-request HTTP logging
-- **CORS** — permissive `AllowAll` policy enabled for local development (restrict origins before deploying to production)
+- **CORS** — unconditional `AllowAll` policy (any origin, any method, any header) applied across all environments including production. Required for the browser-based Drone Mapper and SSE Monitor tools. Restrict origins before exposing this API to untrusted networks.
 - **Test suite** — 266 tests (183 unit + 83 integration) covering all endpoints, state transitions, battery logic, and GPS math
 
 ## Getting Started

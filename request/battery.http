@@ -2,7 +2,7 @@
 
 # ─────────────────────────────────────────────────────────────
 # BATTERY
-# Charge rate (drone.yaml): 0.5 % / s  →  full charge ≈ 3 min 20 s
+# Charge rate (drone.yaml): 0.10 % / s  →  full charge ≈ 16 min 40 s
 # Emergency land threshold: 10 %
 # Recharge requires: Idle state
 # ─────────────────────────────────────────────────────────────

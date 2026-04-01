@@ -123,18 +123,18 @@ Finally, there are implementation blind spots not called out in docs: waypoint a
 
 ## Prioritized Fix List
 
-> **Status**: Items 1–3 addressed in the same commit that introduced this file. Items 4–8 remain open.
+> **Status**: Items 1–3 addressed in the first commit. Items 4–8 addressed in the second commit.
 
 | # | Fix | Impact | Status |
 |---|-----|--------|--------|
 | 1 | Update README API reference and state machine to include mission endpoints and `Idle → TakingOff` navigate path | High | ✅ Fixed |
 | 2 | Add `request/mission.http` with valid/invalid upload, get, clear examples | High | ✅ Fixed |
 | 3 | Correct README test counts from actual CI/local truth (currently 266 passing) | Medium | ✅ Fixed |
-| 4 | Resolve logging documentation/config drift (flip config or update README truthfully) | Medium | Open |
-| 5 | Reconcile CORS statement with production behavior (restrict policy in prod, or document the current risk explicitly) | Medium | Open |
-| 6 | Enforce altitude limits for waypoint ingestion, or explicitly document that waypoint altitude bypasses the max | Medium | Open |
-| 7 | Surface persistence failure in mission upload response, or add an explicit "best-effort persistence" contract to docs | Medium | Open |
-| 8 | Fix stale request comments (`battery.http`, `waypoints.http`, `flight.http`) | Low | Open |
+| 4 | Resolve logging documentation/config drift (flip config or update README truthfully) | Medium | ✅ Fixed (config was already correct — `appsettings.json` has `UseJsonFormat: true` / production=JSON, dev=text; matches README) |
+| 5 | Reconcile CORS statement with production behavior (restrict policy in prod, or document the current risk explicitly) | Medium | ✅ Fixed |
+| 6 | Enforce altitude limits for waypoint ingestion, or explicitly document that waypoint altitude bypasses the max | Medium | ✅ Fixed |
+| 7 | Surface persistence failure in mission upload response, or add an explicit "best-effort persistence" contract to docs | Medium | ✅ Fixed |
+| 8 | Fix stale request comments (`battery.http`, `waypoints.http`, `flight.http`) | Low | ✅ Fixed |
 
 ---
 

@@ -54,7 +54,7 @@ Content-Type: application/json
 
 ###
 
-### Set Speed  (maximum — 15 m/s)
+### Set Speed  (example — 10 m/s; maximum is 15 m/s)
 PUT {{baseUrl}}/drone/speed
 Content-Type: application/json
 
