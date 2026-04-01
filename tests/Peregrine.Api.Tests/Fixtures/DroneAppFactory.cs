@@ -72,6 +72,7 @@ public sealed class DroneAppFactory : WebApplicationFactory<Program>
 
         // Clear any mission plan so tests start clean
         drone.ClearMissionPlan();
+        GetMissionPlanStore().Clear();
 
         // Restore battery to full so tests start with a clean slate
         drone.ChargeBattery(100.0);
