@@ -12,7 +12,7 @@ A drone flight simulator API built with ASP.NET Core 10. Peregrine exposes a RES
 - **OpenAPI docs** — interactive API documentation via Scalar UI
 - **Structured logging** — Serilog with compact JSON (production) or timestamped text (development) output, plus per-request HTTP logging
 - **CORS** — permissive `AllowAll` policy enabled for local development (restrict origins before deploying to production)
-- **Test suite** — 219 tests (111 unit + 51 integration) covering all endpoints, state transitions, battery logic, and GPS math
+- **Test suite** — 266 tests (183 unit + 83 integration) covering all endpoints, state transitions, battery logic, and GPS math
 
 ## Getting Started
 
@@ -93,7 +93,7 @@ All endpoints are under the `/drone` base path.
 | `POST` | `/drone/takeoff` | Take off to a specified altitude (`Idle → TakingOff → Hovering`) |
 | `POST` | `/drone/land` | Initiate landing (`Hovering/Flying → Landing → Idle`) |
 | `POST` | `/drone/hover` | Pause navigation and hover in place (`Flying → Hovering`) |
-| `POST` | `/drone/navigate` | Start navigating loaded waypoints (`Hovering → Flying`) |
+| `POST` | `/drone/navigate` | Start navigating loaded waypoints (`Hovering → Flying`, or `Idle → TakingOff` when mission plan includes a Takeoff command) |
 | `POST` | `/drone/return-home` | Navigate to home position and auto-land (`Hovering/Flying → Flying → Landing → Idle`) |
 | `PUT` | `/drone/speed` | Set cruise speed in m/s (any powered-on state; resets on power-off) |
 | `PUT` | `/drone/altitude` | Adjust target altitude while hovering or flying |
@@ -120,18 +120,28 @@ All endpoints are under the `/drone` base path.
 | `POST` | `/drone/battery/recharge` | Start recharging (`Idle → Charging`). Auto-stops when full. |
 | `POST` | `/drone/battery/recharge/stop` | Stop recharging (`Charging → Idle`) |
 
+### Mission
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/drone/mission` | Upload a QGroundControl .plan mission file (JSON body) |
+| `GET` | `/drone/mission` | Get the currently loaded mission plan summary |
+| `DELETE` | `/drone/mission` | Clear the currently loaded mission plan |
+
 ## Drone State Machine
 
 ```
 Offline ──power on──► Idle ──takeoff──► TakingOff ──► Hovering ──navigate──► Flying
-   ▲                   │ ▲                                │                      │
-   │               recharge│                        land/emergency          hover/land
-   │                   ▼ │                                │                      │
-   └──power off──── Charging                           Landing ◄─────────────────┘
-                                                          │
-                                                          ▼
-                                                         Idle
+   ▲                   │ ▲               ▲                │                      │
+   │               recharge│   navigate  │          land/emergency          hover/land
+   │                   ▼ │  (mission)   │                │                      │
+   └──power off──── Charging            └────────────────┴──────── Landing ◄────┘
+                                                                        │
+                                                                        ▼
+                                                                       Idle
 ```
+
+> `navigate` from `Idle` requires a mission plan with a Takeoff command loaded via `POST /drone/mission`.
 
 Battery below the emergency threshold triggers an automatic landing from any airborne state.
 
@@ -159,7 +169,7 @@ Default telemetry endpoints:
 
 ## HTTP Request Files
 
-Feature-scoped `.http` files for all 16 API endpoints are in the `request/` folder (VS Code REST Client format):
+Feature-scoped `.http` files for all 19 API endpoints are in the `request/` folder (VS Code REST Client format):
 
 | File | Endpoints covered |
 |------|-------------------|
@@ -169,6 +179,7 @@ Feature-scoped `.http` files for all 16 API endpoints are in the `request/` fold
 | `waypoints.http` | `POST /drone/waypoints`<br>`DELETE /drone/waypoints` |
 | `telemetry.http` | `GET /drone/status`<br>`GET /drone/telemetry` |
 | `battery.http` | `GET /drone/battery`<br>`POST /drone/battery/recharge`<br>`POST /drone/battery/recharge/stop` |
+| `mission.http` | `POST /drone/mission`<br>`GET /drone/mission`<br>`DELETE /drone/mission` |
 
 ## Project Structure
 
@@ -180,11 +191,11 @@ Peregrine/
 ├── src/
 │   └── Peregrine.Api/          # ASP.NET Core API project
 │       ├── Domain/             # Domain models (DroneState, DroneStatus, etc.)
-│       ├── Features/           # Vertical slices (Battery, Flight, Power, Telemetry, Waypoints)
+│       ├── Features/           # Vertical slices (Battery, Flight, Mission, Power, Telemetry, Waypoints)
 │       ├── Infrastructure/     # DroneContext, FlightSimulatorService, GeoMath, TelemetryBroadcaster
 │       └── Program.cs          # Application entry point
 ├── tests/
-│   └── Peregrine.Api.Tests/    # xUnit unit + integration tests (219 tests)
+│   └── Peregrine.Api.Tests/    # xUnit unit + integration tests (266 tests)
 ├── tools/
 │   ├── drone-mapper/           # Live map visualisation (Leaflet, plain HTML)
 │   └── sse-monitor/            # SSE debug viewer (plain HTML)

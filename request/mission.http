@@ -1,0 +1,124 @@
+@baseUrl = http://localhost:5180
+
+# ─────────────────────────────────────────────────────────────
+# MISSION
+# Upload a QGroundControl .plan file (JSON) to define a full
+# autonomous mission. When the plan includes a Takeoff command,
+# POST /drone/navigate from Idle state will auto-takeoff and
+# begin executing the mission.
+#
+# Typical autonomous mission sequence:
+#   1. Power on             (power.http)
+#   2. Upload mission plan  → POST /drone/mission
+#   3. Navigate             → Idle → TakingOff → Hovering → Flying
+#   4. Mission executes     (drone lands automatically if plan has Land/RTL)
+#
+# Without a Takeoff command in the plan:
+#   1. Power on, takeoff manually  (power.http, flight.http)
+#   2. Upload mission plan         → POST /drone/mission
+#   3. Navigate                    → Hovering → Flying
+# ─────────────────────────────────────────────────────────────
+
+### Upload Mission Plan — with auto-takeoff (Takeoff + 2 waypoints + RTL)
+# Requires: non-airborne state (rejected while TakingOff/Hovering/Flying/Landing)
+# fileType must be "Plan", version must be 1
+# command 22 = Takeoff, 16 = NavWaypoint, 20 = Return to Launch (auto-land at home)
+POST {{baseUrl}}/drone/mission
+Content-Type: application/json
+
+{
+  "fileType": "Plan",
+  "version": 1,
+  "groundStation": "Peregrine",
+  "mission": {
+    "cruiseSpeed": 15,
+    "hoverSpeed": 5,
+    "plannedHomePosition": [24.414516, 54.456488, 0],
+    "items": [
+      {
+        "type": "SimpleItem",
+        "command": 22,
+        "params": [0, 0, 0, null, 0, 0, 30.0],
+        "Altitude": 30.0
+      },
+      {
+        "type": "SimpleItem",
+        "command": 16,
+        "params": [0, 0, 0, null, 24.420000, 54.460000, 30.0]
+      },
+      {
+        "type": "SimpleItem",
+        "command": 16,
+        "params": [0, 0, 0, null, 24.425000, 54.465000, 50.0]
+      },
+      {
+        "type": "SimpleItem",
+        "command": 20,
+        "params": [0, 0, 0, null, 0, 0, 0]
+      }
+    ]
+  },
+  "geoFence": { "circles": [], "polygons": [] },
+  "rallyPoints": { "points": [] }
+}
+
+###
+
+### Upload Mission Plan — waypoints only (no auto-takeoff)
+# Use when you want to takeoff manually first (POST /drone/takeoff),
+# then navigate to execute these waypoints from Hovering state.
+# Requires: non-airborne state (rejected while TakingOff/Hovering/Flying/Landing)
+POST {{baseUrl}}/drone/mission
+Content-Type: application/json
+
+{
+  "fileType": "Plan",
+  "version": 1,
+  "groundStation": "Peregrine",
+  "mission": {
+    "plannedHomePosition": [24.414516, 54.456488, 0],
+    "items": [
+      {
+        "type": "SimpleItem",
+        "command": 16,
+        "params": [0, 0, 0, null, 24.420000, 54.460000, 40.0]
+      },
+      {
+        "type": "SimpleItem",
+        "command": 16,
+        "params": [0, 0, 0, null, 24.425000, 54.465000, 40.0]
+      }
+    ]
+  },
+  "geoFence": { "circles": [], "polygons": [] },
+  "rallyPoints": { "points": [] }
+}
+
+###
+
+### Upload Mission Plan — invalid fileType (demonstrates 400 response)
+# fileType must be "Plan"; any other value returns 400 Bad Request
+POST {{baseUrl}}/drone/mission
+Content-Type: application/json
+
+{
+  "fileType": "Survey",
+  "version": 1,
+  "mission": { "items": [] },
+  "geoFence": { "circles": [], "polygons": [] },
+  "rallyPoints": { "points": [] }
+}
+
+###
+
+### Get Current Mission Plan
+# Returns the loaded mission summary (waypoint count, has takeoff/landing/RTL, etc.)
+# Returns 404 if no plan is currently loaded.
+GET {{baseUrl}}/drone/mission
+
+###
+
+### Clear Mission Plan
+# Removes the loaded mission plan and deletes persisted plan file.
+# Returns 409 Conflict if the drone is airborne (TakingOff/Hovering/Flying/Landing).
+DELETE {{baseUrl}}/drone/mission
