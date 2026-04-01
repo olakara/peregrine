@@ -574,4 +574,37 @@ public sealed class MissionEndpointTests : IClassFixture<DroneAppFactory>
         drone.State.Should().Be(DroneState.Flying);
         drone.WaypointQueueDepth().Should().Be(1);
     }
+
+    [Fact]
+    public async Task UploadMission_WhileHovering_Returns409AndDroneStateUnchanged()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        drone.TakeOff();
+        drone.TransitionToHovering();
+        drone.State.Should().Be(DroneState.Hovering);
+
+        var response = await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        drone.State.Should().Be(DroneState.Hovering);
+    }
+
+    [Fact]
+    public async Task DeleteMission_WhileHovering_Returns409AndPlanPreserved()
+    {
+        _factory.ResetDrone();
+        var drone = _factory.GetDroneContext();
+        drone.PowerOn();
+        await _client.PostAsync("/drone/mission", PlanJson(SimplePlan));
+        drone.TakeOff();
+        drone.TransitionToHovering();
+        drone.State.Should().Be(DroneState.Hovering);
+
+        var response = await _client.DeleteAsync("/drone/mission");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        drone.GetMissionPlan().Should().NotBeNull();
+    }
 }

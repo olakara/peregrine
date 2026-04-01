@@ -199,7 +199,7 @@ public sealed class DroneContext
     {
         lock (_lock)
         {
-            if (_state is DroneState.TakingOff or DroneState.Flying or DroneState.Landing)
+            if (_state is DroneState.TakingOff or DroneState.Hovering or DroneState.Flying or DroneState.Landing)
                 return (false, "Cannot upload mission plan while airborne. Land first.");
 
             _missionPlan = plan;
@@ -232,7 +232,7 @@ public sealed class DroneContext
     {
         lock (_lock)
         {
-            if (_state is DroneState.TakingOff or DroneState.Flying or DroneState.Landing)
+            if (_state is DroneState.TakingOff or DroneState.Hovering or DroneState.Flying or DroneState.Landing)
                 return (false, "Cannot clear mission plan while airborne. Land first.");
             _missionPlan = null;
             _autoNavigateAfterHover = false;
